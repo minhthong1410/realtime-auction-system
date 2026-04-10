@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useId } from "react";
 import { useAuthStore } from "@/stores/auth-store";
 import type { WSMessage, WSNewBid, WSAuctionEnded, WSBalanceUpdate } from "@/lib/types";
 
@@ -13,10 +13,6 @@ let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 const subscribers = new Map<string, Set<MessageHandler>>();
 const subscribedRooms = new Set<string>();
 
-function getWS(): WebSocket | null {
-  return ws;
-}
-
 function connect() {
   if (ws?.readyState === WebSocket.OPEN || ws?.readyState === WebSocket.CONNECTING) return;
 
@@ -26,7 +22,6 @@ function connect() {
   ws = new WebSocket(url);
 
   ws.onopen = () => {
-    // Re-subscribe to rooms after reconnect
     subscribedRooms.forEach((room) => {
       ws?.send(JSON.stringify({ action: "subscribe", room }));
     });
@@ -35,7 +30,6 @@ function connect() {
   ws.onmessage = (event) => {
     try {
       const msg: WSMessage = JSON.parse(event.data);
-      // Broadcast to all subscribers
       subscribers.forEach((handlers) => {
         handlers.forEach((handler) => handler(msg));
       });
@@ -45,7 +39,6 @@ function connect() {
   };
 
   ws.onclose = () => {
-    // Auto reconnect after 3s
     if (reconnectTimer) clearTimeout(reconnectTimer);
     reconnectTimer = setTimeout(connect, 3000);
   };
@@ -74,9 +67,11 @@ export function useWebSocket(
   onMessage?: MessageHandler
 ) {
   const handlerRef = useRef(onMessage);
-  handlerRef.current = onMessage;
+  const subId = useId();
 
-  const id = useRef(Math.random().toString(36).slice(2));
+  useEffect(() => {
+    handlerRef.current = onMessage;
+  });
 
   useEffect(() => {
     connect();
@@ -85,13 +80,11 @@ export function useWebSocket(
       handlerRef.current?.(msg);
     };
 
-    const subId = id.current;
     if (!subscribers.has(subId)) {
       subscribers.set(subId, new Set());
     }
     subscribers.get(subId)!.add(handler);
 
-    // Subscribe to rooms
     rooms.forEach(subscribeRoom);
 
     return () => {
@@ -99,7 +92,6 @@ export function useWebSocket(
       if (subscribers.get(subId)?.size === 0) {
         subscribers.delete(subId);
       }
-      // Only unsubscribe rooms if no other subscribers need them
       rooms.forEach((room) => {
         let needed = false;
         subscribers.forEach((handlers) => {
@@ -108,12 +100,11 @@ export function useWebSocket(
         if (!needed) unsubscribeRoom(room);
       });
     };
-  }, [rooms.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [rooms.join(","), subId]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-// Hook for auto-syncing user balance via WS
 export function useBalanceSync() {
-  const { user, setBalance, isAuthenticated } = useAuthStore();
+  const { user, setBalance } = useAuthStore();
 
   const rooms = user ? [`user:${user.id}`] : [];
 

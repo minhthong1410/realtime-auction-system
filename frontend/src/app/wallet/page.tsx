@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/error";
 import type { Deposit, ApiResponse, DepositResponse } from "@/lib/types";
 
 export default function WalletPage() {
@@ -19,19 +20,12 @@ export default function WalletPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetchDeposits();
+    let cancelled = false;
+    api.get<ApiResponse<Deposit[]>>("/api/wallet/deposits", { params: { size: 20 } })
+      .then(({ data }) => { if (!cancelled) setDeposits(data.data || []); })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, []);
-
-  const fetchDeposits = async () => {
-    try {
-      const { data } = await api.get<ApiResponse<Deposit[]>>("/api/wallet/deposits", {
-        params: { size: 20 },
-      });
-      setDeposits(data.data || []);
-    } catch {
-      // ignore
-    }
-  };
 
   const handleDeposit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,13 +42,13 @@ export default function WalletPage() {
       });
       // Redirect to Stripe Checkout
       window.location.href = data.data.checkout_url;
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to create deposit");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to create deposit"));
       setLoading(false);
     }
   };
 
-  const statusColor = (status: string) => {
+  const statusColor = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
       case "completed": return "default";
       case "pending": return "secondary";
@@ -110,7 +104,7 @@ export default function WalletPage() {
                     <p className="font-medium">{formatCurrency(d.amount)}</p>
                     <p className="text-xs text-muted-foreground">{formatDate(d.created_at)}</p>
                   </div>
-                  <Badge variant={statusColor(d.status) as any}>{d.status}</Badge>
+                  <Badge variant={statusColor(d.status)}>{d.status}</Badge>
                 </div>
               ))}
             </div>

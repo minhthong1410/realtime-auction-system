@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import Image from "next/image";
+import { getErrorMessage } from "@/lib/error";
 import type { TotpSetupResponse } from "@/lib/types";
 
 export default function TotpSetupPage() {
@@ -32,8 +34,8 @@ export default function TotpSetupPage() {
       const codes = await totpConfirm(code);
       setBackupCodes(codes);
       toast.success("Two-factor authentication enabled!");
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Invalid code");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Invalid code"));
     } finally {
       setLoading(false);
     }
@@ -84,9 +86,12 @@ export default function TotpSetupPage() {
           {setupData ? (
             <>
               <div className="flex justify-center">
-                <img
+                <Image
                   src={`data:image/png;base64,${setupData.qr_code}`}
                   alt="TOTP QR Code"
+                  width={192}
+                  height={192}
+                  unoptimized
                   className="w-48 h-48"
                 />
               </div>

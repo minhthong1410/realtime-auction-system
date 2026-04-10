@@ -4,8 +4,8 @@ import { useAuthStore } from "@/stores/auth-store";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/error";
 
 export default function ProfilePage() {
   const { user, totpDisable } = useAuthStore();
@@ -16,8 +16,8 @@ export default function ProfilePage() {
     try {
       await totpDisable();
       toast.success("Two-factor authentication disabled");
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to disable 2FA");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to disable 2FA"));
     }
   };
 

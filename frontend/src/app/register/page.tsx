@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/error";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -26,8 +27,8 @@ export default function RegisterPage() {
       await register(username, email, password);
       toast.success("Account created! Please setup 2FA.");
       router.push("/totp-setup");
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Registration failed");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Registration failed"));
     } finally {
       setLoading(false);
     }

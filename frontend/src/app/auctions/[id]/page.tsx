@@ -13,6 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import Image from "next/image";
+import { getErrorMessage } from "@/lib/error";
 import type { Auction, Bid, ApiResponse, WSMessage, WSNewBid, WSAuctionEnded } from "@/lib/types";
 
 export default function AuctionDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -103,8 +105,8 @@ export default function AuctionDetailPage({ params }: { params: Promise<{ id: st
       await api.post(`/api/auctions/${id}/bid`, { amount });
       setBidAmount("");
       toast.success("Bid placed!");
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to place bid");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to place bid"));
     } finally {
       setBidding(false);
     }
@@ -124,7 +126,7 @@ export default function AuctionDetailPage({ params }: { params: Promise<{ id: st
       <div className="lg:col-span-2 space-y-4">
         <div className="aspect-video bg-muted rounded-lg overflow-hidden">
           {auction.image_url ? (
-            <img src={auction.image_url} alt={auction.title} className="w-full h-full object-cover" />
+            <Image src={auction.image_url} alt={auction.title} width={800} height={400} unoptimized className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-muted-foreground">
               No Image

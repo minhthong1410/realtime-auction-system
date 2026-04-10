@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
+import Image from "next/image";
+import { getErrorMessage } from "@/lib/error";
 import type { ApiResponse, Auction } from "@/lib/types";
 
 export default function CreateAuctionPage() {
@@ -54,8 +56,8 @@ export default function CreateAuctionPage() {
       });
       toast.success("Auction created!");
       router.push(`/auctions/${data.data.id}`);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to create auction");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to create auction"));
     } finally {
       setLoading(false);
     }
@@ -106,7 +108,7 @@ export default function CreateAuctionPage() {
                 disabled={uploading}
               />
               {imageUrl && (
-                <img src={imageUrl} alt="Preview" className="w-32 h-32 object-cover rounded mt-2" />
+                <Image src={imageUrl} alt="Preview" width={128} height={128} unoptimized className="w-32 h-32 object-cover rounded mt-2" />
               )}
             </div>
 

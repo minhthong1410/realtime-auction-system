@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/error";
 
 export default function VerifyOtpPage() {
   const router = useRouter();
@@ -23,8 +24,8 @@ export default function VerifyOtpPage() {
       await verifyOtp(code);
       toast.success("Verified successfully!");
       router.push("/");
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Invalid code");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Invalid code"));
     } finally {
       setLoading(false);
     }

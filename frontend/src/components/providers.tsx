@@ -5,7 +5,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { Toaster } from "@/components/ui/sonner";
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const { fetchProfile, isLoading } = useAuthStore();
+  const { fetchProfile } = useAuthStore();
 
   useEffect(() => {
     const token = localStorage.getItem("access_token");

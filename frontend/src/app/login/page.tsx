@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/error";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,8 +30,8 @@ export default function LoginPage() {
       } else if (result.require_totp_setup) {
         router.push("/totp-setup");
       }
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Login failed");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Login failed"));
     } finally {
       setLoading(false);
     }
