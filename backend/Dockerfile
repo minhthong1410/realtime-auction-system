@@ -1,6 +1,8 @@
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
+
+ENV GOTOOLCHAIN=auto
 
 COPY go.mod go.sum ./
 RUN go mod download
@@ -12,9 +14,12 @@ FROM alpine:3.19
 
 RUN apk --no-cache add ca-certificates tzdata
 
-COPY --from=builder /server /server
-COPY db/migrations /migrations
+WORKDIR /app
+
+COPY --from=builder /server /app/server
+COPY --from=builder /app/db/migrations /app/db/migrations
+COPY --from=builder /app/internal/i18n/locales /app/internal/i18n/locales
 
 EXPOSE 8080
 
-CMD ["/server"]
+CMD ["/app/server"]
