@@ -1,0 +1,31 @@
+[
+  {"id": "OK", "translation": "Thành công"},
+  {"id": "Created", "translation": "Tạo thành công"},
+
+  {"id": "error.internal_server_error", "translation": "Lỗi hệ thống"},
+  {"id": "error.invalid_params", "translation": "Tham số không hợp lệ"},
+  {"id": "error.unauthorized", "translation": "Chưa xác thực"},
+  {"id": "error.not_found", "translation": "Không tìm thấy"},
+  {"id": "error.database_error", "translation": "Lỗi cơ sở dữ liệu"},
+  {"id": "error.existed", "translation": "Đã tồn tại"},
+
+  {"id": "auth.user_already_exists", "translation": "Tên đăng nhập hoặc email đã tồn tại"},
+  {"id": "auth.invalid_credentials", "translation": "Email hoặc mật khẩu không đúng"},
+  {"id": "auth.invalid_token", "translation": "Token không hợp lệ hoặc đã hết hạn"},
+
+  {"id": "auction.not_found", "translation": "Không tìm thấy phiên đấu giá"},
+  {"id": "auction.ended", "translation": "Phiên đấu giá đã kết thúc"},
+  {"id": "auction.invalid_end_time", "translation": "Thời gian kết thúc phải sau ít nhất 1 phút"},
+  {"id": "auction.bid_too_low", "translation": "Giá đặt phải cao hơn giá hiện tại"},
+  {"id": "auction.self_bid", "translation": "Không thể đặt giá cho phiên đấu giá của chính mình"},
+  {"id": "auction.insufficient_funds", "translation": "Số dư không đủ, vui lòng nạp tiền"},
+
+  {"id": "deposit.not_found", "translation": "Không tìm thấy giao dịch nạp tiền"},
+  {"id": "deposit.not_pending", "translation": "Giao dịch nạp tiền không ở trạng thái chờ"},
+
+  {"id": "totp.invalid_code", "translation": "Mã xác thực không hợp lệ"},
+  {"id": "totp.not_enabled", "translation": "Xác thực hai yếu tố chưa được bật"},
+  {"id": "totp.already_enabled", "translation": "Xác thực hai yếu tố đã được bật"},
+  {"id": "totp.temp_token_expired", "translation": "Mã tạm thời đã hết hạn, vui lòng đăng nhập lại"},
+  {"id": "totp.too_many_attempts", "translation": "Quá nhiều lần thử, vui lòng thử lại sau"}
+]

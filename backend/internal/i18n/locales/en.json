@@ -1,0 +1,31 @@
+[
+  {"id": "OK", "translation": "OK"},
+  {"id": "Created", "translation": "Created"},
+
+  {"id": "error.internal_server_error", "translation": "Internal server error"},
+  {"id": "error.invalid_params", "translation": "Invalid parameters"},
+  {"id": "error.unauthorized", "translation": "Unauthorized"},
+  {"id": "error.not_found", "translation": "Not found"},
+  {"id": "error.database_error", "translation": "Database error"},
+  {"id": "error.existed", "translation": "Resource already exists"},
+
+  {"id": "auth.user_already_exists", "translation": "Username or email already exists"},
+  {"id": "auth.invalid_credentials", "translation": "Invalid email or password"},
+  {"id": "auth.invalid_token", "translation": "Invalid or expired token"},
+
+  {"id": "auction.not_found", "translation": "Auction not found"},
+  {"id": "auction.ended", "translation": "Auction has ended"},
+  {"id": "auction.invalid_end_time", "translation": "End time must be at least 1 minute in the future"},
+  {"id": "auction.bid_too_low", "translation": "Bid must be higher than current price"},
+  {"id": "auction.self_bid", "translation": "Cannot bid on your own auction"},
+  {"id": "auction.insufficient_funds", "translation": "Insufficient balance, please deposit first"},
+
+  {"id": "deposit.not_found", "translation": "Deposit not found"},
+  {"id": "deposit.not_pending", "translation": "Deposit is not in pending status"},
+
+  {"id": "totp.invalid_code", "translation": "Invalid verification code"},
+  {"id": "totp.not_enabled", "translation": "Two-factor authentication is not enabled"},
+  {"id": "totp.already_enabled", "translation": "Two-factor authentication is already enabled"},
+  {"id": "totp.temp_token_expired", "translation": "Temporary token has expired, please login again"},
+  {"id": "totp.too_many_attempts", "translation": "Too many attempts, please try again later"}
+]
