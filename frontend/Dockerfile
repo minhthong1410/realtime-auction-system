@@ -7,12 +7,7 @@ RUN npm ci
 
 COPY . .
 
-ARG NEXT_PUBLIC_API_URL
-ARG NEXT_PUBLIC_WS_URL
-
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
-
+# Railway sets env vars during build — Next.js reads NEXT_PUBLIC_* at build time
 RUN npm run build
 
 FROM node:20-alpine
