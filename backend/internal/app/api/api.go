@@ -19,11 +19,10 @@ import (
 
 	"github.com/kurama/auction-system/backend/internal/app"
 	"github.com/kurama/auction-system/backend/internal/config"
-	"github.com/kurama/auction-system/backend/internal/database"
 	"github.com/kurama/auction-system/backend/internal/handler"
 	"github.com/kurama/auction-system/backend/internal/i18n"
-	"github.com/kurama/auction-system/backend/internal/repository"
 	"github.com/kurama/auction-system/backend/internal/middleware"
+	"github.com/kurama/auction-system/backend/internal/repository"
 	"github.com/kurama/auction-system/backend/internal/storage"
 	"github.com/kurama/auction-system/backend/internal/worker"
 	"github.com/kurama/auction-system/backend/internal/ws"
@@ -43,17 +42,13 @@ func New(cfg *config.Config, logger *zap.Logger) *Application {
 }
 
 func (a *Application) Run() error {
-	i18n.Init("internal/i18n/locales")
+	i18n.Init()
 	stripe.Key = a.cfg.Stripe.SecretKey
 
 	if err := a.initDB(); err != nil {
 		return fmt.Errorf("database: %w", err)
 	}
 	defer a.db.Close()
-
-	if err := database.RunMigrations(a.db, "db/migrations"); err != nil {
-		return fmt.Errorf("migrations: %w", err)
-	}
 
 	if err := a.initRedis(); err != nil {
 		return fmt.Errorf("redis: %w", err)

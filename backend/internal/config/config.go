@@ -28,8 +28,8 @@ type StorageConfig struct {
 }
 
 type StripeConfig struct {
-	SecretKey      string
-	WebhookSecret  string
+	SecretKey     string
+	WebhookSecret string
 }
 
 type ServerConfig struct {
@@ -120,12 +120,12 @@ func parseDatabaseDSN() string {
 			password, _ := u.User.Password()
 			host := u.Host
 			dbName := strings.TrimPrefix(u.Path, "/")
-			return fmt.Sprintf("%s:%s@tcp(%s)/%s?parseTime=true&loc=UTC&multiStatements=true",
+			return fmt.Sprintf("%s:%s@tcp(%s)/%s?parseTime=true&loc=UTC",
 				u.User.Username(), password, host, dbName)
 		}
 	}
 
-	return "root:root@tcp(localhost:3306)/auction?parseTime=true&loc=UTC&multiStatements=true"
+	return "root:root@tcp(localhost:3306)/auction?parseTime=true&loc=UTC"
 }
 
 func getEnv(key, fallback string) string {
