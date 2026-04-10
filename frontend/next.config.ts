@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  output: process.env.DOCKER_BUILD === "true" ? "standalone" : undefined,
-};
+const nextConfig: NextConfig = {};
+
+if (process.env.DOCKER_BUILD === "true") {
+  nextConfig.output = "standalone";
+}
 
 export default nextConfig;
