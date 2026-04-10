@@ -200,11 +200,23 @@ func (a *Application) initDB() error {
 }
 
 func (a *Application) initRedis() error {
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     a.cfg.Redis.Addr,
-		Password: a.cfg.Redis.Password,
-		DB:       a.cfg.Redis.DB,
-	})
+	var rdb *redis.Client
+
+	if a.cfg.Redis.URL != "" {
+		// Parse URL (e.g. redis://default:password@host:port)
+		opt, err := redis.ParseURL(a.cfg.Redis.URL)
+		if err != nil {
+			return fmt.Errorf("parse redis url: %w", err)
+		}
+		rdb = redis.NewClient(opt)
+	} else {
+		rdb = redis.NewClient(&redis.Options{
+			Addr:     a.cfg.Redis.Addr,
+			Password: a.cfg.Redis.Password,
+			DB:       a.cfg.Redis.DB,
+		})
+	}
+
 	if err := rdb.Ping(context.Background()).Err(); err != nil {
 		return err
 	}

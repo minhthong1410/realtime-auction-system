@@ -1,8 +1,11 @@
 package config
 
 import (
+	"fmt"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -43,6 +46,7 @@ type DBConfig struct {
 }
 
 type RedisConfig struct {
+	URL      string // redis://default:password@host:port (preferred, e.g. Railway)
 	Addr     string
 	Password string
 	DB       int
@@ -67,12 +71,13 @@ func Load() *Config {
 			WriteTimeout: 10 * time.Second,
 		},
 		DB: DBConfig{
-			DSN:             getEnv("DATABASE_DSN", "root:root@tcp(localhost:3306)/auction?parseTime=true&loc=UTC&innodb_lock_wait_timeout=5"),
+			DSN:             parseDatabaseDSN(),
 			MaxOpenConns:    getEnvInt("DB_MAX_OPEN_CONNS", 25),
 			MaxIdleConns:    getEnvInt("DB_MAX_IDLE_CONNS", 5),
 			ConnMaxLifetime: 5 * time.Minute,
 		},
 		Redis: RedisConfig{
+			URL:      getEnv("REDIS_URL", ""),
 			Addr:     getEnv("REDIS_ADDR", "localhost:6379"),
 			Password: getEnv("REDIS_PASSWORD", ""),
 			DB:       getEnvInt("REDIS_DB", 0),
@@ -98,6 +103,29 @@ func Load() *Config {
 			RefreshTokenTTL: 7 * 24 * time.Hour,
 		},
 	}
+}
+
+// parseDatabaseDSN converts DATABASE_URL (mysql://user:pass@host:port/db) to Go MySQL DSN,
+// or falls back to DATABASE_DSN if set directly.
+func parseDatabaseDSN() string {
+	// Direct DSN takes priority
+	if dsn := os.Getenv("DATABASE_DSN"); dsn != "" {
+		return dsn
+	}
+
+	// Parse URL format (e.g. Railway: mysql://root:pass@host:port/railway)
+	if dbURL := os.Getenv("DATABASE_URL"); dbURL != "" {
+		u, err := url.Parse(dbURL)
+		if err == nil {
+			password, _ := u.User.Password()
+			host := u.Host
+			dbName := strings.TrimPrefix(u.Path, "/")
+			return fmt.Sprintf("%s:%s@tcp(%s)/%s?parseTime=true&loc=UTC",
+				u.User.Username(), password, host, dbName)
+		}
+	}
+
+	return "root:root@tcp(localhost:3306)/auction?parseTime=true&loc=UTC"
 }
 
 func getEnv(key, fallback string) string {
