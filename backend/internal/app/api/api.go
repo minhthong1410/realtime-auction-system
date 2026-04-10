@@ -125,8 +125,12 @@ func (a *Application) newRouter() *gin.Engine {
 	r.Use(middleware.I18nMiddleware())
 	r.Use(middleware.RateLimit(100, time.Minute))
 
+	allowedOrigins := []string{"http://localhost:3000", "http://localhost:5173"}
+	if frontendURL := os.Getenv("FRONTEND_URL"); frontendURL != "" {
+		allowedOrigins = append(allowedOrigins, frontendURL)
+	}
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000", "http://localhost:5173"},
+		AllowOrigins:     allowedOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
