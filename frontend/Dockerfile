@@ -7,7 +7,7 @@ RUN npm ci
 
 COPY . .
 
-# Railway sets env vars during build — Next.js reads NEXT_PUBLIC_* at build time
+ENV DOCKER_BUILD=true
 RUN npm run build
 
 FROM node:20-alpine
