@@ -25,11 +25,18 @@ func RunMigrations(db *sql.DB, migrationsDir string) error {
 		return fmt.Errorf("create migrate instance: %w", err)
 	}
 
+	// Fix dirty state if previous migration failed
+	version, dirty, _ := m.Version()
+	if dirty {
+		slog.Info("fixing dirty migration", "version", version)
+		m.Force(int(version) - 1)
+	}
+
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		return fmt.Errorf("run migrations: %w", err)
 	}
 
-	version, dirty, _ := m.Version()
+	version, dirty, _ = m.Version()
 	slog.Info("migrations completed", "version", version, "dirty", dirty)
 	return nil
 }

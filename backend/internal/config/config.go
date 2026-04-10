@@ -120,12 +120,12 @@ func parseDatabaseDSN() string {
 			password, _ := u.User.Password()
 			host := u.Host
 			dbName := strings.TrimPrefix(u.Path, "/")
-			return fmt.Sprintf("%s:%s@tcp(%s)/%s?parseTime=true&loc=UTC",
+			return fmt.Sprintf("%s:%s@tcp(%s)/%s?parseTime=true&loc=UTC&multiStatements=true",
 				u.User.Username(), password, host, dbName)
 		}
 	}
 
-	return "root:root@tcp(localhost:3306)/auction?parseTime=true&loc=UTC"
+	return "root:root@tcp(localhost:3306)/auction?parseTime=true&loc=UTC&multiStatements=true"
 }
 
 func getEnv(key, fallback string) string {
