@@ -1,13 +1,45 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import api from "@/lib/api";
+import { useWebSocket } from "@/hooks/use-websocket";
 import { AuctionCard } from "@/components/auction-card";
-import type { Auction, ApiResponse } from "@/lib/types";
+import type { Auction, ApiResponse, WSMessage, WSNewBid, WSAuctionEnded } from "@/lib/types";
 
 export default function MyAuctionsPage() {
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const wsRooms = useMemo(
+    () => auctions.filter((a) => a.status === 1).map((a) => `auction:${a.id}`),
+    [auctions]
+  );
+
+  useWebSocket(
+    wsRooms,
+    useCallback((msg: WSMessage) => {
+      if (msg.type === "new_bid") {
+        const data = msg.data as WSNewBid;
+        setAuctions((prev) =>
+          prev.map((a) =>
+            a.id === data.auction_id
+              ? { ...a, current_price: data.amount, bid_count: data.bid_count, winner_name: data.username }
+              : a
+          )
+        );
+      }
+      if (msg.type === "auction_ended") {
+        const data = msg.data as WSAuctionEnded;
+        setAuctions((prev) =>
+          prev.map((a) =>
+            a.id === data.auction_id
+              ? { ...a, status: 2, winner_name: data.winner, current_price: data.final_price }
+              : a
+          )
+        );
+      }
+    }, [])
+  );
 
   useEffect(() => {
     api.get<ApiResponse<Auction[]>>("/api/my/auctions", { params: { size: 50 } })
