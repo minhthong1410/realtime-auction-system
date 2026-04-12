@@ -116,13 +116,14 @@ func (q *Queries) GetAuctionByID(ctx context.Context, id []byte) (GetAuctionByID
 }
 
 const getExpiredActiveAuctions = `-- name: GetExpiredActiveAuctions :many
-SELECT id, winner_id, current_price, title
+SELECT id, seller_id, winner_id, current_price, title
 FROM auctions
 WHERE status = 1 AND end_time <= NOW()
 `
 
 type GetExpiredActiveAuctionsRow struct {
 	ID           []byte         `json:"id"`
+	SellerID     []byte         `json:"seller_id"`
 	WinnerID     sql.NullString `json:"winner_id"`
 	CurrentPrice int64          `json:"current_price"`
 	Title        string         `json:"title"`
@@ -139,6 +140,7 @@ func (q *Queries) GetExpiredActiveAuctions(ctx context.Context) ([]GetExpiredAct
 		var i GetExpiredActiveAuctionsRow
 		if err := rows.Scan(
 			&i.ID,
+			&i.SellerID,
 			&i.WinnerID,
 			&i.CurrentPrice,
 			&i.Title,

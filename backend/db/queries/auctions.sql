@@ -38,7 +38,7 @@ SET current_price = ?, winner_id = ?
 WHERE id = ?;
 
 -- name: GetExpiredActiveAuctions :many
-SELECT id, winner_id, current_price, title
+SELECT id, seller_id, winner_id, current_price, title
 FROM auctions
 WHERE status = 1 AND end_time <= NOW();
 

@@ -53,7 +53,20 @@ func (w *AuctionCloser) closeExpired(ctx context.Context) error {
 		return nil
 	}
 
-	// Close in batch transaction
+	for _, auction := range expired {
+		if err := w.closeOne(ctx, auction); err != nil {
+			logger.Error("failed to close auction",
+				zap.String("auction_id", util.UUIDToString(auction.ID)),
+				zap.Error(err))
+		}
+	}
+
+	return nil
+}
+
+func (w *AuctionCloser) closeOne(ctx context.Context, auction repository.GetExpiredActiveAuctionsRow) error {
+	auctionIDStr := util.UUIDToString(auction.ID)
+
 	tx, err := w.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
@@ -62,11 +75,24 @@ func (w *AuctionCloser) closeExpired(ctx context.Context) error {
 
 	qtx := w.queries.WithTx(tx)
 
-	for _, auction := range expired {
-		if err := qtx.CloseAuctionByID(ctx, auction.ID); err != nil {
-			logger.Error("failed to close auction", zap.String("auction_id", util.UUIDToString(auction.ID)), zap.Error(err))
-			continue
+	// Close auction
+	if err := qtx.CloseAuctionByID(ctx, auction.ID); err != nil {
+		return fmt.Errorf("close auction: %w", err)
+	}
+
+	// Transfer winning bid amount to seller
+	if auction.WinnerID.Valid && auction.CurrentPrice > 0 {
+		err := qtx.RefundBalance(ctx, repository.RefundBalanceParams{
+			Balance: auction.CurrentPrice,
+			ID:      auction.SellerID,
+		})
+		if err != nil {
+			return fmt.Errorf("transfer to seller: %w", err)
 		}
+		logger.Info("transferred to seller",
+			zap.String("auction_id", auctionIDStr),
+			zap.String("seller_id", util.UUIDToString(auction.SellerID)),
+			zap.Int64("amount", auction.CurrentPrice))
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -74,28 +100,36 @@ func (w *AuctionCloser) closeExpired(ctx context.Context) error {
 	}
 
 	// Broadcast after commit
-	for _, auction := range expired {
-		auctionIDStr := util.UUIDToString(auction.ID)
-		winnerName := ""
-		if auction.WinnerID.Valid {
-			winnerBytes := []byte(auction.WinnerID.String)
-			user, err := w.queries.GetUserByID(ctx, winnerBytes)
-			if err == nil {
-				winnerName = user.Username
-			}
+	winnerName := ""
+	if auction.WinnerID.Valid {
+		winnerBytes := []byte(auction.WinnerID.String)
+		user, err := w.queries.GetUserByID(ctx, winnerBytes)
+		if err == nil {
+			winnerName = user.Username
 		}
-
-		w.hub.BroadcastToRoom(ctx, fmt.Sprintf("auction:%s", auctionIDStr), model.WSMessage{
-			Type: "auction_ended",
-			Data: model.WSAuctionEnded{
-				AuctionID:  auctionIDStr,
-				Winner:     winnerName,
-				FinalPrice: auction.CurrentPrice,
-			},
-		})
-
-		logger.Info("auction closed", zap.String("auction_id", auctionIDStr), zap.String("winner", winnerName), zap.Int64("final_price", auction.CurrentPrice))
 	}
+
+	w.hub.BroadcastToRoom(ctx, fmt.Sprintf("auction:%s", auctionIDStr), model.WSMessage{
+		Type: "auction_ended",
+		Data: model.WSAuctionEnded{
+			AuctionID:  auctionIDStr,
+			Winner:     winnerName,
+			FinalPrice: auction.CurrentPrice,
+		},
+	})
+
+	// Notify seller balance update
+	sellerIDStr := util.UUIDToString(auction.SellerID)
+	newBalance, _ := w.queries.GetBalance(ctx, auction.SellerID)
+	w.hub.BroadcastToRoom(ctx, fmt.Sprintf("user:%s", sellerIDStr), model.WSMessage{
+		Type: "balance_update",
+		Data: model.WSBalanceUpdate{Balance: newBalance, Reason: "auction_sold"},
+	})
+
+	logger.Info("auction closed",
+		zap.String("auction_id", auctionIDStr),
+		zap.String("winner", winnerName),
+		zap.Int64("final_price", auction.CurrentPrice))
 
 	return nil
 }
