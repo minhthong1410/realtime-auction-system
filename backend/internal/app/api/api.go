@@ -73,6 +73,14 @@ func (a *Application) Run() error {
 	// Register all handlers (each registers its own routes)
 	a.setupRoutes(appCtx)
 
+	// Grafana Cloud remote write
+	metrics.StartRemoteWrite(ctx, metrics.RemoteWriteConfig{
+		URL:        a.cfg.Grafana.RemoteWriteURL,
+		Username:   a.cfg.Grafana.Username,
+		Password:   a.cfg.Grafana.APIKey,
+		PushPeriod: 15 * time.Second,
+	})
+
 	// Background workers
 	queries := repository.New(a.db)
 	auctionCloser := worker.NewAuctionCloser(a.db, queries, a.hub)

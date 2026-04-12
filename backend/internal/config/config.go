@@ -17,6 +17,13 @@ type Config struct {
 	TOTP    TOTPConfig
 	Stripe  StripeConfig
 	Storage StorageConfig
+	Grafana GrafanaConfig
+}
+
+type GrafanaConfig struct {
+	RemoteWriteURL string
+	Username       string
+	APIKey         string
 }
 
 type StorageConfig struct {
@@ -96,6 +103,11 @@ func Load() *Config {
 		Stripe: StripeConfig{
 			SecretKey:     getEnv("STRIPE_SECRET_KEY", ""),
 			WebhookSecret: getEnv("STRIPE_WEBHOOK_SECRET", ""),
+		},
+		Grafana: GrafanaConfig{
+			RemoteWriteURL: getEnv("GRAFANA_REMOTE_WRITE_URL", ""),
+			Username:       getEnv("GRAFANA_USERNAME", ""),
+			APIKey:         getEnv("GRAFANA_API_KEY", ""),
 		},
 		JWT: JWTConfig{
 			Secret:          requireEnvOrDev("JWT_SECRET", "dev-only-secret-do-not-use-in-prod"),

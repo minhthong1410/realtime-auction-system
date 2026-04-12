@@ -62,7 +62,7 @@ var (
 			Name: "cache_hits_total",
 			Help: "Cache hit/miss counter",
 		},
-		[]string{"result"}, // "hit" or "miss"
+		[]string{"result"},
 	)
 )
 
