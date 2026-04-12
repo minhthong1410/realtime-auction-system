@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import api from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
@@ -19,8 +19,10 @@ export default function HomePage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
+  const fetchRef = useRef(() => {});
+
   const wsRooms = useMemo(
-    () => auctions.filter((a) => a.status === 1).map((a) => `auction:${a.id}`),
+    () => ["auction:feed", ...auctions.filter((a) => a.status === 1).map((a) => `auction:${a.id}`)],
     [auctions]
   );
 
@@ -47,15 +49,14 @@ export default function HomePage() {
           )
         );
       }
+      if (msg.type === "auction_created" || msg.type === "auction_updated") {
+        fetchRef.current();
+      }
     }, [])
   );
 
-  useEffect(() => {
-    fetchAuctions();
-  }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const fetchAuctions = async () => {
-    setLoading(true);
+  const fetchAuctions = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       const { data } = await api.get<ApiResponse<Auction[]>>("/api/auctions", {
         params: { page, size: 12 },
@@ -65,9 +66,17 @@ export default function HomePage() {
     } catch {
       setAuctions([]);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
-  };
+  }, [page]);
+
+  useEffect(() => {
+    fetchRef.current = () => fetchAuctions(false);
+  }, [fetchAuctions]);
+
+  useEffect(() => {
+    fetchAuctions();
+  }, [fetchAuctions]);
 
   return (
     <div className="space-y-10">

@@ -22,7 +22,7 @@ type AuctionHandler struct {
 func NewAuctionHandler(ctx *app.Context) *AuctionHandler {
 	queries := repository.New(ctx.DB)
 	c := cache.New(ctx.Redis)
-	auctionService := service.NewAuctionService(ctx.DB, queries, c)
+	auctionService := service.NewAuctionService(ctx.DB, queries, c, ctx.Hub)
 	bidService := service.NewBidService(ctx.DB, queries, ctx.Hub)
 
 	h := &AuctionHandler{

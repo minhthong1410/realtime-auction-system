@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import api from "@/lib/api";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { AuctionCard } from "@/components/auction-card";
@@ -9,9 +9,10 @@ import type { Auction, ApiResponse, WSMessage, WSNewBid, WSAuctionEnded } from "
 export default function MyAuctionsPage() {
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [loading, setLoading] = useState(true);
+  const fetchRef = useRef(() => {});
 
   const wsRooms = useMemo(
-    () => auctions.filter((a) => a.status === 1).map((a) => `auction:${a.id}`),
+    () => ["auction:feed", ...auctions.filter((a) => a.status === 1).map((a) => `auction:${a.id}`)],
     [auctions]
   );
 
@@ -38,15 +39,31 @@ export default function MyAuctionsPage() {
           )
         );
       }
+      if (msg.type === "auction_created" || msg.type === "auction_updated") {
+        fetchRef.current();
+      }
     }, [])
   );
 
-  useEffect(() => {
-    api.get<ApiResponse<Auction[]>>("/api/my/auctions", { params: { size: 50 } })
-      .then(({ data }) => setAuctions(data.data || []))
-      .catch(() => setAuctions([]))
-      .finally(() => setLoading(false));
+  const fetchMyAuctions = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
+    try {
+      const { data } = await api.get<ApiResponse<Auction[]>>("/api/my/auctions", { params: { size: 50 } });
+      setAuctions(data.data || []);
+    } catch {
+      setAuctions([]);
+    } finally {
+      if (showLoading) setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchRef.current = () => fetchMyAuctions(false);
+  }, [fetchMyAuctions]);
+
+  useEffect(() => {
+    fetchMyAuctions();
+  }, [fetchMyAuctions]);
 
   return (
     <div className="space-y-6">

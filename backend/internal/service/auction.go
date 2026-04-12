@@ -13,21 +13,24 @@ import (
 	"github.com/kurama/auction-system/backend/internal/model"
 	"github.com/kurama/auction-system/backend/internal/repository"
 	"github.com/kurama/auction-system/backend/internal/util"
+	"github.com/kurama/auction-system/backend/internal/ws"
 )
 
 const (
 	auctionDetailTTL = 30 * time.Second
 	auctionListTTL   = 15 * time.Second
+	auctionFeedRoom  = "auction:feed"
 )
 
 type AuctionService struct {
 	queries *repository.Queries
 	db      *sql.DB
 	cache   *cache.Cache
+	hub     *ws.Hub
 }
 
-func NewAuctionService(db *sql.DB, queries *repository.Queries, c *cache.Cache) *AuctionService {
-	return &AuctionService{queries: queries, db: db, cache: c}
+func NewAuctionService(db *sql.DB, queries *repository.Queries, c *cache.Cache, hub *ws.Hub) *AuctionService {
+	return &AuctionService{queries: queries, db: db, cache: c, hub: hub}
 }
 
 func (s *AuctionService) Create(ctx context.Context, userID string, req model.CreateAuctionRequest) (*model.Auction, error) {
@@ -66,7 +69,17 @@ func (s *AuctionService) Create(ctx context.Context, userID string, req model.Cr
 	// Invalidate list cache on new auction
 	s.cache.DelPattern(ctx, "cache:auctions:*")
 
-	return s.GetByID(ctx, util.UUIDToString(auctionID))
+	auction, err := s.GetByID(ctx, util.UUIDToString(auctionID))
+	if err != nil {
+		return nil, err
+	}
+
+	s.hub.BroadcastToRoom(ctx, auctionFeedRoom, model.WSMessage{
+		Type: "auction_created",
+		Data: auction,
+	})
+
+	return auction, nil
 }
 
 func (s *AuctionService) Update(ctx context.Context, auctionID, userID string, req model.UpdateAuctionRequest) (*model.Auction, error) {
@@ -113,7 +126,22 @@ func (s *AuctionService) Update(ctx context.Context, auctionID, userID string, r
 	}
 
 	s.InvalidateAuction(ctx, auctionID)
-	return s.GetByID(ctx, auctionID)
+
+	auction, err := s.GetByID(ctx, auctionID)
+	if err != nil {
+		return nil, err
+	}
+
+	s.hub.BroadcastToRoom(ctx, auctionFeedRoom, model.WSMessage{
+		Type: "auction_updated",
+		Data: auction,
+	})
+	s.hub.BroadcastToRoom(ctx, "auction:"+auctionID, model.WSMessage{
+		Type: "auction_updated",
+		Data: auction,
+	})
+
+	return auction, nil
 }
 
 func (s *AuctionService) GetByID(ctx context.Context, id string) (*model.Auction, error) {

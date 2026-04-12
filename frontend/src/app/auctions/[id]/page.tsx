@@ -76,6 +76,10 @@ export default function AuctionDetailPage({ params }: { params: Promise<{ id: st
         );
         toast.info(`${t("auction.auctionEnded")} ${data.winner || t("auction.noBidsWinner")}`);
       }
+      if (msg.type === "auction_updated") {
+        const data = msg.data as Auction;
+        setAuction(data);
+      }
     }, [t])
   );
 
