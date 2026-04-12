@@ -145,6 +145,34 @@ func (q *Queries) ListDepositsByUser(ctx context.Context, arg ListDepositsByUser
 	return items, nil
 }
 
+const lockDepositByStripeID = `-- name: LockDepositByStripeID :one
+SELECT id, user_id, amount, status, stripe_payment_id
+FROM deposits
+WHERE stripe_payment_id = ?
+FOR UPDATE
+`
+
+type LockDepositByStripeIDRow struct {
+	ID              []byte `json:"id"`
+	UserID          []byte `json:"user_id"`
+	Amount          int64  `json:"amount"`
+	Status          string `json:"status"`
+	StripePaymentID string `json:"stripe_payment_id"`
+}
+
+func (q *Queries) LockDepositByStripeID(ctx context.Context, stripePaymentID string) (LockDepositByStripeIDRow, error) {
+	row := q.db.QueryRowContext(ctx, lockDepositByStripeID, stripePaymentID)
+	var i LockDepositByStripeIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Amount,
+		&i.Status,
+		&i.StripePaymentID,
+	)
+	return i, err
+}
+
 const updateDepositStatus = `-- name: UpdateDepositStatus :exec
 UPDATE deposits SET status = ? WHERE id = ?
 `

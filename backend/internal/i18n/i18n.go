@@ -3,10 +3,11 @@ package i18n
 import (
 	"embed"
 	"encoding/json"
-	"log/slog"
 	"path/filepath"
 
+	"github.com/kurama/auction-system/backend/internal/logger"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
+	"go.uber.org/zap"
 	"golang.org/x/text/language"
 )
 
@@ -21,7 +22,7 @@ func Init() {
 
 	entries, err := localesFS.ReadDir("locales")
 	if err != nil {
-		slog.Error("failed to read embedded i18n directory", "error", err)
+		logger.Error("failed to read embedded i18n directory", zap.Error(err))
 		return
 	}
 
@@ -32,13 +33,13 @@ func Init() {
 
 		data, err := localesFS.ReadFile("locales/" + entry.Name())
 		if err != nil {
-			slog.Error("failed to read i18n file", "file", entry.Name(), "error", err)
+			logger.Error("failed to read i18n file", zap.String("file", entry.Name()), zap.Error(err))
 			continue
 		}
 		if _, err := Bundle.ParseMessageFileBytes(data, entry.Name()); err != nil {
-			slog.Error("failed to parse i18n file", "file", entry.Name(), "error", err)
+			logger.Error("failed to parse i18n file", zap.String("file", entry.Name()), zap.Error(err))
 		} else {
-			slog.Info("loaded i18n file", "file", entry.Name())
+			logger.Info("loaded i18n file", zap.String("file", entry.Name()))
 		}
 	}
 }

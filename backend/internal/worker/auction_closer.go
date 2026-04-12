@@ -4,13 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log/slog"
 	"time"
 
+	"github.com/kurama/auction-system/backend/internal/logger"
 	"github.com/kurama/auction-system/backend/internal/model"
 	"github.com/kurama/auction-system/backend/internal/repository"
 	"github.com/kurama/auction-system/backend/internal/util"
 	"github.com/kurama/auction-system/backend/internal/ws"
+	"go.uber.org/zap"
 )
 
 type AuctionCloser struct {
@@ -27,16 +28,16 @@ func (w *AuctionCloser) Run(ctx context.Context) {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
-	slog.Info("auction closer worker started")
+	logger.Info("auction closer worker started")
 
 	for {
 		select {
 		case <-ctx.Done():
-			slog.Info("auction closer worker stopped")
+			logger.Info("auction closer worker stopped")
 			return
 		case <-ticker.C:
 			if err := w.closeExpired(ctx); err != nil {
-				slog.Error("auction closer error", "error", err)
+				logger.Error("auction closer error", zap.Error(err))
 			}
 		}
 	}
@@ -63,7 +64,7 @@ func (w *AuctionCloser) closeExpired(ctx context.Context) error {
 
 	for _, auction := range expired {
 		if err := qtx.CloseAuctionByID(ctx, auction.ID); err != nil {
-			slog.Error("failed to close auction", "auction_id", util.UUIDToString(auction.ID), "error", err)
+			logger.Error("failed to close auction", zap.String("auction_id", util.UUIDToString(auction.ID)), zap.Error(err))
 			continue
 		}
 	}
@@ -93,7 +94,7 @@ func (w *AuctionCloser) closeExpired(ctx context.Context) error {
 			},
 		})
 
-		slog.Info("auction closed", "auction_id", auctionIDStr, "winner", winnerName, "final_price", auction.CurrentPrice)
+		logger.Info("auction closed", zap.String("auction_id", auctionIDStr), zap.String("winner", winnerName), zap.Int64("final_price", auction.CurrentPrice))
 	}
 
 	return nil

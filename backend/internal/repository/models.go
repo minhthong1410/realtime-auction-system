@@ -54,3 +54,17 @@ type User struct {
 	TotpEnabled bool            `json:"totp_enabled"`
 	BackupCodes json.RawMessage `json:"backup_codes"`
 }
+
+type Withdrawal struct {
+	ID            []byte       `json:"id"`
+	UserID        []byte       `json:"user_id"`
+	Amount        int64        `json:"amount"`
+	Status        string       `json:"status"`
+	BankName      string       `json:"bank_name"`
+	AccountNumber string       `json:"account_number"`
+	AccountHolder string       `json:"account_holder"`
+	Note          string       `json:"note"`
+	ReviewedAt    sql.NullTime `json:"reviewed_at"`
+	CreatedAt     time.Time    `json:"created_at"`
+	UpdatedAt     time.Time    `json:"updated_at"`
+}

@@ -35,7 +35,7 @@ func (q *Queries) EnableUserTotp(ctx context.Context, arg EnableUserTotpParams) 
 }
 
 const getUserTotpInfo = `-- name: GetUserTotpInfo :one
-SELECT id, username, totp_secret, totp_enabled, backup_codes
+SELECT id, username, totp_secret, totp_enabled, COALESCE(backup_codes, CAST('[]' AS JSON)) AS backup_codes
 FROM users WHERE id = ?
 `
 

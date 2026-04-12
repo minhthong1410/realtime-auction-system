@@ -83,7 +83,7 @@ func Load() *Config {
 			DB:       getEnvInt("REDIS_DB", 0),
 		},
 		TOTP: TOTPConfig{
-			AESKey: getEnv("TOTP_AES_KEY", "01234567890123456789012345678901"), // 32 bytes
+			AESKey: requireEnvOrDev("TOTP_AES_KEY", "01234567890123456789012345678901"),
 			Issuer: getEnv("TOTP_ISSUER", "AuctionSystem"),
 		},
 		Storage: StorageConfig{
@@ -98,7 +98,7 @@ func Load() *Config {
 			WebhookSecret: getEnv("STRIPE_WEBHOOK_SECRET", ""),
 		},
 		JWT: JWTConfig{
-			Secret:          getEnv("JWT_SECRET", "change-me-in-production"),
+			Secret:          requireEnvOrDev("JWT_SECRET", "dev-only-secret-do-not-use-in-prod"),
 			AccessTokenTTL:  15 * time.Minute,
 			RefreshTokenTTL: 7 * 24 * time.Hour,
 		},
@@ -133,6 +133,18 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// requireEnvOrDev returns the env var value, or the dev fallback only in dev mode.
+// In production (GIN_MODE=release), it panics if the env var is not set.
+func requireEnvOrDev(key, devFallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	if os.Getenv("GIN_MODE") == "release" {
+		panic(fmt.Sprintf("FATAL: %s environment variable is required in production", key))
+	}
+	return devFallback
 }
 
 func getEnvInt(key string, fallback int) int {

@@ -14,6 +14,12 @@ FROM deposits d
 JOIN users u ON u.id = d.user_id
 WHERE d.stripe_payment_id = ?;
 
+-- name: LockDepositByStripeID :one
+SELECT id, user_id, amount, status, stripe_payment_id
+FROM deposits
+WHERE stripe_payment_id = ?
+FOR UPDATE;
+
 -- name: UpdateDepositStatus :exec
 UPDATE deposits SET status = ? WHERE id = ?;
 

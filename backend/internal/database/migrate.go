@@ -3,11 +3,12 @@ package database
 import (
 	"database/sql"
 	"fmt"
-	"log/slog"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/mysql"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/kurama/auction-system/backend/internal/logger"
+	"go.uber.org/zap"
 )
 
 func RunMigrations(db *sql.DB, migrationsDir string) error {
@@ -28,7 +29,7 @@ func RunMigrations(db *sql.DB, migrationsDir string) error {
 	// Fix dirty state if previous migration failed
 	version, dirty, _ := m.Version()
 	if dirty {
-		slog.Info("fixing dirty migration", "version", version)
+		logger.Info("fixing dirty migration", zap.Uint("version", version))
 		m.Force(int(version) - 1)
 	}
 
@@ -37,6 +38,6 @@ func RunMigrations(db *sql.DB, migrationsDir string) error {
 	}
 
 	version, dirty, _ = m.Version()
-	slog.Info("migrations completed", "version", version, "dirty", dirty)
+	logger.Info("migrations completed", zap.Uint("version", version), zap.Bool("dirty", dirty))
 	return nil
 }

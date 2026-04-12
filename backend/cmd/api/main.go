@@ -6,6 +6,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/kurama/auction-system/backend/internal/app/api"
 	"github.com/kurama/auction-system/backend/internal/config"
+	"github.com/kurama/auction-system/backend/internal/logger"
 	"go.uber.org/zap"
 )
 
@@ -13,23 +14,25 @@ func main() {
 	// Load .env file (ignore error if not found — production uses real env vars)
 	_ = godotenv.Load()
 
-	var logger *zap.Logger
+	var l *zap.Logger
 	var err error
 
 	if os.Getenv("GIN_MODE") == "release" {
-		logger, err = zap.NewProduction()
+		l, err = zap.NewProduction()
 	} else {
-		logger, err = zap.NewDevelopment()
+		l, err = zap.NewDevelopment()
 	}
 	if err != nil {
 		panic("failed to init logger: " + err.Error())
 	}
-	defer logger.Sync()
+	defer l.Sync()
+
+	logger.Init(l)
 
 	cfg := config.Load()
 
-	app := api.New(cfg, logger)
+	app := api.New(cfg, l)
 	if err := app.Run(); err != nil {
-		logger.Fatal("application error", zap.Error(err))
+		l.Fatal("application error", zap.Error(err))
 	}
 }

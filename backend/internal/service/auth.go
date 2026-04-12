@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	appErr "github.com/kurama/auction-system/backend/internal/errors"
 	"github.com/kurama/auction-system/backend/internal/config"
+	appErr "github.com/kurama/auction-system/backend/internal/errors"
 	"github.com/kurama/auction-system/backend/internal/model"
 	"github.com/kurama/auction-system/backend/internal/repository"
 	"github.com/kurama/auction-system/backend/internal/util"
@@ -58,10 +58,17 @@ func (s *AuthService) Register(ctx context.Context, req model.RegisterRequest) (
 	}, nil
 }
 
+// dummyHash is a bcrypt hash used to prevent timing-based user enumeration.
+// When a user is not found, we still run bcrypt.CompareHashAndPassword against this
+// dummy hash so the response time is consistent whether or not the email exists.
+var dummyHash, _ = bcrypt.GenerateFromPassword([]byte("dummy-password-for-timing"), bcrypt.DefaultCost)
+
 // ValidateCredentials checks email/password and returns user (without issuing tokens).
 func (s *AuthService) ValidateCredentials(ctx context.Context, req model.LoginRequest) (*model.User, error) {
 	dbUser, err := s.queries.GetUserByEmail(ctx, req.Email)
 	if err != nil {
+		// Constant-time: run bcrypt even if user not found to prevent timing attack
+		bcrypt.CompareHashAndPassword(dummyHash, []byte(req.Password))
 		return nil, appErr.ErrorInvalidCredentials
 	}
 

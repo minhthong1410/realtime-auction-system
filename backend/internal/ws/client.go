@@ -2,11 +2,12 @@ package ws
 
 import (
 	"encoding/json"
-	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/kurama/auction-system/backend/internal/logger"
+	"go.uber.org/zap"
 )
 
 const (
@@ -78,7 +79,7 @@ func (c *Client) ReadPump() {
 		_, data, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
-				slog.Error("websocket read error", "error", err)
+				logger.Error("websocket read error", zap.Error(err))
 			}
 			break
 		}

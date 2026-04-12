@@ -5,15 +5,17 @@ import (
 	"database/sql"
 	stderrors "errors"
 	"fmt"
-	"log/slog"
 
 	appErr "github.com/kurama/auction-system/backend/internal/errors"
+	"github.com/kurama/auction-system/backend/internal/logger"
+	"github.com/kurama/auction-system/backend/internal/metrics"
 	"github.com/kurama/auction-system/backend/internal/model"
 	"github.com/kurama/auction-system/backend/internal/repository"
 	"github.com/kurama/auction-system/backend/internal/util"
 	"github.com/kurama/auction-system/backend/internal/ws"
 	"github.com/stripe/stripe-go/v82"
 	"github.com/stripe/stripe-go/v82/checkout/session"
+	"go.uber.org/zap"
 )
 
 type DepositService struct {
@@ -48,7 +50,7 @@ func (s *DepositService) CreateDeposit(ctx context.Context, userID string, amoun
 
 	sess, err := session.New(params)
 	if err != nil {
-		slog.Error("failed to create stripe checkout session", "error", err)
+		logger.Error("failed to create stripe checkout session", zap.Error(err))
 		return nil, appErr.ErrorInternalServer
 	}
 
@@ -58,21 +60,31 @@ func (s *DepositService) CreateDeposit(ctx context.Context, userID string, amoun
 		ID:              depositID,
 		UserID:          userIDBytes,
 		Amount:          amount,
-		StripePaymentID: sess.PaymentIntent.ID,
+		StripePaymentID: sess.ID,
 	})
 	if err != nil {
+		logger.Error("failed to create deposit record", zap.Error(err))
 		return nil, appErr.ErrorDatabase
 	}
 
 	return &model.DepositResponse{
 		CheckoutURL:     sess.URL,
-		StripePaymentID: sess.PaymentIntent.ID,
+		StripePaymentID: sess.ID,
 		Amount:          amount,
 	}, nil
 }
 
 func (s *DepositService) HandlePaymentSuccess(ctx context.Context, stripePaymentID string) error {
-	deposit, err := s.queries.GetDepositByStripeID(ctx, stripePaymentID)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return appErr.ErrorDatabase
+	}
+	defer tx.Rollback()
+
+	qtx := s.queries.WithTx(tx)
+
+	// Lock deposit row to prevent double processing from webhook retries
+	deposit, err := qtx.LockDepositByStripeID(ctx, stripePaymentID)
 	if err != nil {
 		if stderrors.Is(err, sql.ErrNoRows) {
 			return nil
@@ -83,14 +95,6 @@ func (s *DepositService) HandlePaymentSuccess(ctx context.Context, stripePayment
 	if deposit.Status != "pending" {
 		return nil
 	}
-
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return appErr.ErrorDatabase
-	}
-	defer tx.Rollback()
-
-	qtx := s.queries.WithTx(tx)
 
 	err = qtx.UpdateDepositStatus(ctx, repository.UpdateDepositStatusParams{
 		Status: "completed",
@@ -112,8 +116,9 @@ func (s *DepositService) HandlePaymentSuccess(ctx context.Context, stripePayment
 		return appErr.ErrorDatabase
 	}
 
+	metrics.DepositsTotal.WithLabelValues("completed").Inc()
 	userIDStr := util.UUIDToString(deposit.UserID)
-	slog.Info("deposit completed via webhook", "deposit_id", util.UUIDToString(deposit.ID), "user_id", userIDStr, "amount", deposit.Amount)
+	logger.Info("deposit completed via webhook", zap.String("deposit_id", util.UUIDToString(deposit.ID)), zap.String("user_id", userIDStr), zap.Int64("amount", deposit.Amount))
 
 	newBalance, _ := s.queries.GetBalance(ctx, deposit.UserID)
 	s.hub.BroadcastToRoom(ctx, fmt.Sprintf("user:%s", userIDStr), model.WSMessage{

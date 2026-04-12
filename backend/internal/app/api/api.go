@@ -21,6 +21,7 @@ import (
 	"github.com/kurama/auction-system/backend/internal/config"
 	"github.com/kurama/auction-system/backend/internal/handler"
 	"github.com/kurama/auction-system/backend/internal/i18n"
+	"github.com/kurama/auction-system/backend/internal/metrics"
 	"github.com/kurama/auction-system/backend/internal/middleware"
 	"github.com/kurama/auction-system/backend/internal/repository"
 	"github.com/kurama/auction-system/backend/internal/storage"
@@ -43,6 +44,7 @@ func New(cfg *config.Config, logger *zap.Logger) *Application {
 
 func (a *Application) Run() error {
 	i18n.Init()
+	metrics.Init()
 	stripe.Key = a.cfg.Stripe.SecretKey
 
 	if err := a.initDB(); err != nil {
@@ -133,8 +135,12 @@ func (a *Application) newRouter() *gin.Engine {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	// Health check
+	// Metrics middleware
+	r.Use(metrics.Middleware())
+
+	// Health check & metrics
 	r.GET("/health", a.healthCheck)
+	r.GET("/metrics", metrics.Handler())
 
 	return r
 }
@@ -158,6 +164,7 @@ func (a *Application) setupRoutes(ctx *app.Context) {
 	handler.NewAuthHandler(ctx)
 	handler.NewAuctionHandler(ctx)
 	handler.NewDepositHandler(ctx)
+	handler.NewWithdrawalHandler(ctx)
 	handler.NewUploadHandler(ctx)
 	handler.NewWebhookHandler(ctx)
 	handler.NewWSHandler(ctx)

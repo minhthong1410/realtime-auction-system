@@ -8,7 +8,7 @@ UPDATE users SET totp_enabled = TRUE, backup_codes = ? WHERE id = ?;
 UPDATE users SET totp_enabled = FALSE, totp_secret = NULL, backup_codes = NULL WHERE id = ?;
 
 -- name: GetUserTotpInfo :one
-SELECT id, username, totp_secret, totp_enabled, backup_codes
+SELECT id, username, totp_secret, totp_enabled, COALESCE(backup_codes, CAST('[]' AS JSON)) AS backup_codes
 FROM users WHERE id = ?;
 
 -- name: UpdateUserBackupCodes :exec

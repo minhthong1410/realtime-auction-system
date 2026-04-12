@@ -18,9 +18,11 @@ import (
 
 	"github.com/kurama/auction-system/backend/internal/config"
 	appErr "github.com/kurama/auction-system/backend/internal/errors"
+	"github.com/kurama/auction-system/backend/internal/logger"
 	"github.com/kurama/auction-system/backend/internal/repository"
 	"github.com/kurama/auction-system/backend/internal/util"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
 const (
@@ -98,17 +100,22 @@ func (s *TOTPService) ValidateTempToken(tokenStr, expectedPurpose string) (*Temp
 
 // SetupTOTP generates a new TOTP secret, stores encrypted, returns QR code.
 func (s *TOTPService) SetupTOTP(ctx context.Context, userID, username string) (qrBase64 string, secret string, err error) {
-	// Check if already enabled
-	userIDBytes, _ := util.UUIDFromString(userID)
+	userIDBytes, err := util.UUIDFromString(userID)
+	if err != nil {
+		logger.Error("totp setup: invalid user ID format", zap.String("user_id", userID), zap.Error(err))
+		return "", "", appErr.ErrorNotFound
+	}
+
 	info, err := s.queries.GetUserTotpInfo(ctx, userIDBytes)
 	if err != nil {
+		logger.Error("totp setup: user not found in DB", zap.String("user_id", userID), zap.Error(err))
 		return "", "", appErr.ErrorNotFound
 	}
 	if info.TotpEnabled {
+		logger.Warn("totp setup: already enabled", zap.String("user_id", userID))
 		return "", "", appErr.ErrorTotpAlreadyEnabled
 	}
 
-	// Generate TOTP key
 	key, err := totp.Generate(totp.GenerateOpts{
 		Issuer:      s.issuer,
 		AccountName: username,
@@ -117,21 +124,22 @@ func (s *TOTPService) SetupTOTP(ctx context.Context, userID, username string) (q
 		Algorithm:   otp.AlgorithmSHA1,
 	})
 	if err != nil {
+		logger.Error("totp setup: failed to generate key", zap.String("user_id", userID), zap.Error(err))
 		return "", "", appErr.ErrorInternalServer
 	}
 
-	// Encrypt secret
 	encrypted, err := util.Encrypt(key.Secret(), s.aesKey)
 	if err != nil {
+		logger.Error("totp setup: failed to encrypt secret", zap.String("user_id", userID), zap.Error(err))
 		return "", "", appErr.ErrorInternalServer
 	}
 
-	// Store encrypted secret (not yet enabled)
 	err = s.queries.UpdateUserTotpSecret(ctx, repository.UpdateUserTotpSecretParams{
 		TotpSecret: sql.NullString{String: encrypted, Valid: true},
 		ID:         userIDBytes,
 	})
 	if err != nil {
+		logger.Error("totp setup: failed to store secret", zap.String("user_id", userID), zap.Error(err))
 		return "", "", appErr.ErrorDatabase
 	}
 
@@ -154,9 +162,15 @@ func (s *TOTPService) SetupTOTP(ctx context.Context, userID, username string) (q
 
 // ConfirmTOTP verifies the code and enables TOTP, returns backup codes.
 func (s *TOTPService) ConfirmTOTP(ctx context.Context, userID, code string) ([]string, error) {
-	userIDBytes, _ := util.UUIDFromString(userID)
+	userIDBytes, err := util.UUIDFromString(userID)
+	if err != nil {
+		logger.Error("totp confirm: invalid user ID format", zap.String("user_id", userID), zap.Error(err))
+		return nil, appErr.ErrorNotFound
+	}
+
 	info, err := s.queries.GetUserTotpInfo(ctx, userIDBytes)
 	if err != nil {
+		logger.Error("totp confirm: user not found in DB", zap.String("user_id", userID), zap.Error(err))
 		return nil, appErr.ErrorNotFound
 	}
 
@@ -168,9 +182,9 @@ func (s *TOTPService) ConfirmTOTP(ctx context.Context, userID, code string) ([]s
 		return nil, appErr.ErrorTotpNotEnabled
 	}
 
-	// Decrypt secret
 	secret, err := util.Decrypt(info.TotpSecret.String, s.aesKey)
 	if err != nil {
+		logger.Error("totp confirm: failed to decrypt secret", zap.String("user_id", userID), zap.Error(err))
 		return nil, appErr.ErrorInternalServer
 	}
 
@@ -191,12 +205,12 @@ func (s *TOTPService) ConfirmTOTP(ctx context.Context, userID, code string) ([]s
 
 	codesJSON, _ := json.Marshal(hashedCodes)
 
-	// Enable TOTP
 	err = s.queries.EnableUserTotp(ctx, repository.EnableUserTotpParams{
 		BackupCodes: codesJSON,
 		ID:          userIDBytes,
 	})
 	if err != nil {
+		logger.Error("totp confirm: failed to enable", zap.String("user_id", userID), zap.Error(err))
 		return nil, appErr.ErrorDatabase
 	}
 
@@ -208,19 +222,25 @@ func (s *TOTPService) ConfirmTOTP(ctx context.Context, userID, code string) ([]s
 
 // VerifyTOTP verifies a TOTP code or backup code.
 func (s *TOTPService) VerifyTOTP(ctx context.Context, userID, code string) error {
-	// Rate limit check
 	attemptsKey := fmt.Sprintf("user:otp_attempts:%s", userID)
 	attempts, _ := s.rdb.Incr(ctx, attemptsKey).Result()
 	if attempts == 1 {
 		s.rdb.Expire(ctx, attemptsKey, otpAttemptsTTL)
 	}
 	if attempts > int64(otpMaxAttempts) {
+		logger.Warn("totp verify: too many attempts", zap.String("user_id", userID), zap.Int64("attempts", attempts))
 		return appErr.ErrorTotpTooManyAttempts
 	}
 
-	userIDBytes, _ := util.UUIDFromString(userID)
+	userIDBytes, err := util.UUIDFromString(userID)
+	if err != nil {
+		logger.Error("totp verify: invalid user ID format", zap.String("user_id", userID), zap.Error(err))
+		return appErr.ErrorNotFound
+	}
+
 	info, err := s.queries.GetUserTotpInfo(ctx, userIDBytes)
 	if err != nil {
+		logger.Error("totp verify: user not found in DB", zap.String("user_id", userID), zap.Error(err))
 		return appErr.ErrorNotFound
 	}
 
@@ -228,22 +248,28 @@ func (s *TOTPService) VerifyTOTP(ctx context.Context, userID, code string) error
 		return appErr.ErrorTotpNotEnabled
 	}
 
-	// Decrypt secret
 	secret, err := util.Decrypt(info.TotpSecret.String, s.aesKey)
 	if err != nil {
+		logger.Error("totp verify: failed to decrypt secret", zap.String("user_id", userID), zap.Error(err))
 		return appErr.ErrorInternalServer
 	}
 
 	// Try TOTP validation
 	valid, err := totp.ValidateCustom(code, secret, time.Now(), totp.ValidateOpts{
 		Period:    30,
-		Skew:     1,
-		Digits:   otp.DigitsSix,
+		Skew:      1,
+		Digits:    otp.DigitsSix,
 		Algorithm: otp.AlgorithmSHA1,
 	})
 	if err == nil && valid {
-		s.rdb.Del(ctx, attemptsKey)
-		return nil
+		// Replay protection: reject code if already used within this time window
+		usedKey := fmt.Sprintf("user:totp_used:%s:%s", userID, code)
+		if s.rdb.SetNX(ctx, usedKey, 1, 90*time.Second).Val() {
+			s.rdb.Del(ctx, attemptsKey)
+			return nil
+		}
+		// Code was already used — treat as invalid
+		return appErr.ErrorTotpInvalidCode
 	}
 
 	// Try backup code
@@ -269,15 +295,28 @@ func (s *TOTPService) VerifyTOTP(ctx context.Context, userID, code string) error
 
 // DisableTOTP removes TOTP from user account.
 func (s *TOTPService) DisableTOTP(ctx context.Context, userID string) error {
-	userIDBytes, _ := util.UUIDFromString(userID)
-	return s.queries.DisableUserTotp(ctx, userIDBytes)
+	userIDBytes, err := util.UUIDFromString(userID)
+	if err != nil {
+		logger.Error("totp disable: invalid user ID format", zap.String("user_id", userID), zap.Error(err))
+		return appErr.ErrorNotFound
+	}
+	if err := s.queries.DisableUserTotp(ctx, userIDBytes); err != nil {
+		logger.Error("totp disable: failed", zap.String("user_id", userID), zap.Error(err))
+		return appErr.ErrorDatabase
+	}
+	return nil
 }
 
 // IsTOTPEnabled checks if user has TOTP enabled.
 func (s *TOTPService) IsTOTPEnabled(ctx context.Context, userID string) (bool, error) {
-	userIDBytes, _ := util.UUIDFromString(userID)
+	userIDBytes, err := util.UUIDFromString(userID)
+	if err != nil {
+		logger.Error("totp check enabled: invalid user ID format", zap.String("user_id", userID), zap.Error(err))
+		return false, err
+	}
 	info, err := s.queries.GetUserTotpInfo(ctx, userIDBytes)
 	if err != nil {
+		logger.Error("totp check enabled: user not found", zap.String("user_id", userID), zap.Error(err))
 		return false, err
 	}
 	return info.TotpEnabled, nil

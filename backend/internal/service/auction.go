@@ -6,19 +6,27 @@ import (
 	stderrors "errors"
 	"time"
 
+	"github.com/kurama/auction-system/backend/internal/cache"
 	appErr "github.com/kurama/auction-system/backend/internal/errors"
+	"github.com/kurama/auction-system/backend/internal/metrics"
 	"github.com/kurama/auction-system/backend/internal/model"
 	"github.com/kurama/auction-system/backend/internal/repository"
 	"github.com/kurama/auction-system/backend/internal/util"
 )
 
+const (
+	auctionDetailTTL = 30 * time.Second
+	auctionListTTL   = 15 * time.Second
+)
+
 type AuctionService struct {
 	queries *repository.Queries
 	db      *sql.DB
+	cache   *cache.Cache
 }
 
-func NewAuctionService(db *sql.DB, queries *repository.Queries) *AuctionService {
-	return &AuctionService{queries: queries, db: db}
+func NewAuctionService(db *sql.DB, queries *repository.Queries, c *cache.Cache) *AuctionService {
+	return &AuctionService{queries: queries, db: db, cache: c}
 }
 
 func (s *AuctionService) Create(ctx context.Context, userID string, req model.CreateAuctionRequest) (*model.Auction, error) {
@@ -43,6 +51,9 @@ func (s *AuctionService) Create(ctx context.Context, userID string, req model.Cr
 		return nil, appErr.ErrorDatabase
 	}
 
+	// Invalidate list cache on new auction
+	s.cache.DelPattern(ctx, "cache:auctions:*")
+
 	return s.GetByID(ctx, util.UUIDToString(auctionID))
 }
 
@@ -52,6 +63,15 @@ func (s *AuctionService) GetByID(ctx context.Context, id string) (*model.Auction
 		return nil, appErr.ErrorAuctionNotFound
 	}
 
+	// Try cache
+	cacheKey := cache.KeyAuction(id)
+	var cached model.Auction
+	if s.cache.Get(ctx, cacheKey, &cached) {
+		metrics.CacheHits.WithLabelValues("hit").Inc()
+		return &cached, nil
+	}
+	metrics.CacheHits.WithLabelValues("miss").Inc()
+
 	row, err := s.queries.GetAuctionByID(ctx, idBytes)
 	if err != nil {
 		if stderrors.Is(err, sql.ErrNoRows) {
@@ -60,10 +80,25 @@ func (s *AuctionService) GetByID(ctx context.Context, id string) (*model.Auction
 		return nil, appErr.ErrorDatabase
 	}
 
-	return mapAuctionDetailRow(row), nil
+	auction := mapAuctionDetailRow(row)
+	s.cache.Set(ctx, cacheKey, auction, auctionDetailTTL)
+	return auction, nil
 }
 
 func (s *AuctionService) ListActive(ctx context.Context, limit, offset int32) ([]model.Auction, int64, error) {
+	// Try cache
+	cacheKey := cache.KeyAuctionList(limit, offset)
+	type cachedList struct {
+		Auctions []model.Auction `json:"auctions"`
+		Count    int64           `json:"count"`
+	}
+	var cached cachedList
+	if s.cache.Get(ctx, cacheKey, &cached) {
+		metrics.CacheHits.WithLabelValues("hit").Inc()
+		return cached.Auctions, cached.Count, nil
+	}
+	metrics.CacheHits.WithLabelValues("miss").Inc()
+
 	rows, err := s.queries.ListActiveAuctions(ctx, repository.ListActiveAuctionsParams{
 		Limit:  limit,
 		Offset: offset,
@@ -97,6 +132,7 @@ func (s *AuctionService) ListActive(ctx context.Context, limit, offset int32) ([
 		}
 	}
 
+	s.cache.Set(ctx, cacheKey, cachedList{Auctions: auctions, Count: count}, auctionListTTL)
 	return auctions, count, nil
 }
 
@@ -160,6 +196,12 @@ func (s *AuctionService) GetBidHistory(ctx context.Context, auctionID string, li
 	return bids, nil
 }
 
+// InvalidateAuction clears cache for a specific auction and list caches.
+func (s *AuctionService) InvalidateAuction(ctx context.Context, auctionID string) {
+	s.cache.Del(ctx, cache.KeyAuction(auctionID))
+	s.cache.DelPattern(ctx, "cache:auctions:list:*")
+}
+
 func mapAuctionDetailRow(row repository.GetAuctionByIDRow) *model.Auction {
 	return &model.Auction{
 		ID:            util.UUIDToString(row.ID),
@@ -180,12 +222,10 @@ func mapAuctionDetailRow(row repository.GetAuctionByIDRow) *model.Auction {
 	}
 }
 
-// nullBytesToStringPtr converts sql.NullString (MySQL scans BINARY nullable as NullString) to *string UUID.
 func nullBytesToStringPtr(n sql.NullString) *string {
 	if !n.Valid || n.String == "" {
 		return nil
 	}
-	// MySQL driver may return raw bytes as string for BINARY columns
 	s := util.UUIDToString([]byte(n.String))
 	if s == "" {
 		return nil

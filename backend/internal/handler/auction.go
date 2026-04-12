@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/kurama/auction-system/backend/internal/app"
+	"github.com/kurama/auction-system/backend/internal/cache"
 	appErr "github.com/kurama/auction-system/backend/internal/errors"
 	"github.com/kurama/auction-system/backend/internal/httputil"
 	"github.com/kurama/auction-system/backend/internal/model"
@@ -20,7 +21,8 @@ type AuctionHandler struct {
 
 func NewAuctionHandler(ctx *app.Context) *AuctionHandler {
 	queries := repository.New(ctx.DB)
-	auctionService := service.NewAuctionService(ctx.DB, queries)
+	c := cache.New(ctx.Redis)
+	auctionService := service.NewAuctionService(ctx.DB, queries, c)
 	bidService := service.NewBidService(ctx.DB, queries, ctx.Hub)
 
 	h := &AuctionHandler{
@@ -141,6 +143,9 @@ func (h *AuctionHandler) PlaceBid(c *gin.Context) error {
 	if err != nil {
 		return renderServiceError(c, err)
 	}
+
+	// Invalidate auction cache after successful bid
+	h.auctionService.InvalidateAuction(c.Request.Context(), auctionID)
 
 	return httputil.RenderGinJSON(http.StatusCreated, c, httputil.NewCreatedResponse(c, bid))
 }

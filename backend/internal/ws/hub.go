@@ -3,10 +3,11 @@ package ws
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
 	"sync"
 
+	"github.com/kurama/auction-system/backend/internal/logger"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
 type Hub struct {
@@ -49,7 +50,7 @@ func (h *Hub) Run(ctx context.Context) {
 			}
 			h.rooms[sub.room][sub.client] = true
 			h.mu.Unlock()
-			slog.Debug("client joined room", "room", sub.room)
+			logger.Debug("client joined room", zap.String("room", sub.room))
 
 		case sub := <-h.unregister:
 			h.mu.Lock()
@@ -60,7 +61,7 @@ func (h *Hub) Run(ctx context.Context) {
 				}
 			}
 			h.mu.Unlock()
-			slog.Debug("client left room", "room", sub.room)
+			logger.Debug("client left room", zap.String("room", sub.room))
 
 		case client := <-h.disconnect:
 			h.mu.Lock()
@@ -74,7 +75,7 @@ func (h *Hub) Run(ctx context.Context) {
 			}
 			h.mu.Unlock()
 			close(client.send)
-			slog.Debug("client disconnected from all rooms")
+			logger.Debug("client disconnected from all rooms")
 		}
 	}
 }
@@ -83,7 +84,7 @@ func (h *Hub) Run(ctx context.Context) {
 func (h *Hub) BroadcastToRoom(ctx context.Context, room string, msg interface{}) {
 	data, err := json.Marshal(msg)
 	if err != nil {
-		slog.Error("failed to marshal broadcast message", "error", err)
+		logger.Error("failed to marshal broadcast message", zap.Error(err))
 		return
 	}
 
@@ -91,7 +92,7 @@ func (h *Hub) BroadcastToRoom(ctx context.Context, room string, msg interface{})
 	payloadBytes, _ := json.Marshal(payload)
 
 	if err := h.rdb.Publish(ctx, "ws:broadcast", payloadBytes).Err(); err != nil {
-		slog.Error("failed to publish to redis", "error", err)
+		logger.Error("failed to publish to redis", zap.Error(err))
 		h.localBroadcast(room, data)
 	}
 }
@@ -111,7 +112,7 @@ func (h *Hub) subscribeRedis(ctx context.Context) {
 			}
 			var rm redisMessage
 			if err := json.Unmarshal([]byte(msg.Payload), &rm); err != nil {
-				slog.Error("failed to unmarshal redis message", "error", err)
+				logger.Error("failed to unmarshal redis message", zap.Error(err))
 				continue
 			}
 			h.localBroadcast(rm.Room, rm.Data)
@@ -128,7 +129,7 @@ func (h *Hub) localBroadcast(room string, data []byte) {
 		select {
 		case client.send <- data:
 		default:
-			slog.Warn("dropping message for slow client", "room", room)
+			logger.Warn("dropping message for slow client", zap.String("room", room))
 		}
 	}
 }
@@ -164,7 +165,7 @@ func (h *Hub) closeAll() {
 		}
 		delete(h.rooms, room)
 	}
-	slog.Info("all websocket connections closed")
+	logger.Info("all websocket connections closed")
 }
 
 type redisMessage struct {

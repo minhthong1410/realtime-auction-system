@@ -5,14 +5,16 @@ import (
 	"database/sql"
 	stderrors "errors"
 	"fmt"
-	"log/slog"
 	"time"
 
 	appErr "github.com/kurama/auction-system/backend/internal/errors"
+	"github.com/kurama/auction-system/backend/internal/logger"
+	"github.com/kurama/auction-system/backend/internal/metrics"
 	"github.com/kurama/auction-system/backend/internal/model"
 	"github.com/kurama/auction-system/backend/internal/repository"
 	"github.com/kurama/auction-system/backend/internal/util"
 	"github.com/kurama/auction-system/backend/internal/ws"
+	"go.uber.org/zap"
 )
 
 type BidService struct {
@@ -149,6 +151,7 @@ func (s *BidService) PlaceBid(ctx context.Context, auctionID, userID string, use
 		})
 	}
 
-	slog.Info("bid placed", "auction_id", auctionID, "user_id", userID, "amount", amount)
+	metrics.BidsTotal.Inc()
+	logger.Info("bid placed", zap.String("auction_id", auctionID), zap.String("user_id", userID), zap.Int64("amount", amount))
 	return bid, nil
 }

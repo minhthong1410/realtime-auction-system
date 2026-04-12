@@ -98,7 +98,7 @@ type TotpConfirmRequest struct {
 }
 
 type DepositRequest struct {
-	Amount int64 `json:"amount" binding:"required,gt=0"`
+	Amount int64 `json:"amount" binding:"required,gt=0,max=10000000"` // max $100,000
 }
 
 type DepositResponse struct {
@@ -116,6 +116,29 @@ type Deposit struct {
 	StripePaymentID string    `json:"stripe_payment_id"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+type WithdrawalRequest struct {
+	Amount        int64  `json:"amount" binding:"required,gt=0,max=10000000"` // max $100,000
+	BankName      string `json:"bank_name" binding:"required,max=100"`
+	AccountNumber string `json:"account_number" binding:"required,max=50"`
+	AccountHolder string `json:"account_holder" binding:"required,max=100"`
+	Note          string `json:"note" binding:"max=255"`
+}
+
+type Withdrawal struct {
+	ID            string     `json:"id"`
+	UserID        string     `json:"user_id"`
+	Username      string     `json:"username,omitempty"`
+	Amount        int64      `json:"amount"`
+	Status        string     `json:"status"`
+	BankName      string     `json:"bank_name"`
+	AccountNumber string     `json:"account_number"`
+	AccountHolder string     `json:"account_holder"`
+	Note          string     `json:"note"`
+	ReviewedAt    *time.Time `json:"reviewed_at"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
 }
 
 type RefreshRequest struct {

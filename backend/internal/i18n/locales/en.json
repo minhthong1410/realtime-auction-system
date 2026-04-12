@@ -27,5 +27,8 @@
   {"id": "totp.not_enabled", "translation": "Two-factor authentication is not enabled"},
   {"id": "totp.already_enabled", "translation": "Two-factor authentication is already enabled"},
   {"id": "totp.temp_token_expired", "translation": "Temporary token has expired, please login again"},
-  {"id": "totp.too_many_attempts", "translation": "Too many attempts, please try again later"}
+  {"id": "totp.too_many_attempts", "translation": "Too many attempts, please try again later"},
+
+  {"id": "wallet.withdrawal_min_amount", "translation": "Minimum withdrawal amount is $5.00"},
+  {"id": "wallet.withdrawal_pending_exists", "translation": "You already have a pending withdrawal request"}
 ]

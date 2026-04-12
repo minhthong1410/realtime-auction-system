@@ -2,14 +2,18 @@ package handler
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/kurama/auction-system/backend/internal/app"
 	appErr "github.com/kurama/auction-system/backend/internal/errors"
 	"github.com/kurama/auction-system/backend/internal/httputil"
+	"github.com/kurama/auction-system/backend/internal/logger"
+	"github.com/kurama/auction-system/backend/internal/middleware"
 	"github.com/kurama/auction-system/backend/internal/model"
 	"github.com/kurama/auction-system/backend/internal/repository"
 	"github.com/kurama/auction-system/backend/internal/service"
+	"go.uber.org/zap"
 )
 
 type AuthHandler struct {
@@ -28,14 +32,15 @@ func NewAuthHandler(ctx *app.Context) *AuthHandler {
 	}
 
 	w := ctx.Wrap
+	authRateLimit := middleware.RateLimit(10, time.Minute) // stricter: 10 req/min for auth
 	auth := ctx.Engine.Group("/api/auth")
 	{
-		auth.POST("/register", w(h.Register))
-		auth.POST("/login", w(h.Login))
-		auth.POST("/refresh", w(h.Refresh))
-		auth.POST("/totp/setup", w(h.TotpSetup))
-		auth.POST("/totp/confirm", w(h.TotpConfirm))
-		auth.POST("/verify-otp", w(h.VerifyOTP))
+		auth.POST("/register", authRateLimit, w(h.Register))
+		auth.POST("/login", authRateLimit, w(h.Login))
+		auth.POST("/refresh", middleware.RateLimit(30, time.Minute), w(h.Refresh))
+		auth.POST("/totp/setup", authRateLimit, w(h.TotpSetup))
+		auth.POST("/totp/confirm", authRateLimit, w(h.TotpConfirm))
+		auth.POST("/verify-otp", authRateLimit, w(h.VerifyOTP))
 	}
 
 	protected := ctx.Engine.Group("/api")
@@ -136,8 +141,11 @@ func (h *AuthHandler) TotpSetup(c *gin.Context) error {
 
 	claims, err := h.totpService.ValidateTempToken(req.TempToken, "totp_setup")
 	if err != nil {
+		logger.Error("totp setup handler: invalid temp token", zap.Error(err))
 		return renderServiceError(c, err)
 	}
+
+	logger.Info("totp setup handler: processing", zap.String("user_id", claims.UserID), zap.String("username", claims.Username))
 
 	qr, secret, err := h.totpService.SetupTOTP(c.Request.Context(), claims.UserID, claims.Username)
 	if err != nil {
