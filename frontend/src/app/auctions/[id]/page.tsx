@@ -52,7 +52,7 @@ export default function AuctionDetailPage({ params }: { params: Promise<{ id: st
       }
     };
     fetchData();
-  }, [id, router]);
+  }, [id, router, t]);
 
   useWebSocket(
     [`auction:${id}`],
@@ -74,7 +74,7 @@ export default function AuctionDetailPage({ params }: { params: Promise<{ id: st
         );
         toast.info(`${t("auction.auctionEnded")} ${data.winner || t("auction.noBidsWinner")}`);
       }
-    }, [])
+    }, [t])
   );
 
   const handleBid = async (e: React.FormEvent) => {

@@ -33,15 +33,16 @@ function getNestedValue(obj: Record<string, unknown>, path: string): string {
   return typeof value === "string" ? value : path;
 }
 
-export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>("en");
-
-  useEffect(() => {
+function getInitialLocale(): Locale {
+  if (typeof window !== "undefined") {
     const saved = localStorage.getItem("locale") as Locale | null;
-    if (saved && dictionaries[saved]) {
-      setLocaleState(saved);
-    }
-  }, []);
+    if (saved && dictionaries[saved]) return saved;
+  }
+  return "en";
+}
+
+export function I18nProvider({ children }: { children: ReactNode }) {
+  const [locale, setLocaleState] = useState<Locale>(getInitialLocale);
 
   const setLocale = useCallback((l: Locale) => {
     setLocaleState(l);
