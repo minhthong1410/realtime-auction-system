@@ -100,6 +100,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
     set({ user: null, isAuthenticated: false, tempToken: null });
+    window.location.href = "/";
   },
 
   setBalance: (balance) => {

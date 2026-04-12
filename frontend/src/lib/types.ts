@@ -87,6 +87,20 @@ export interface DepositResponse {
   amount: number;
 }
 
+export interface Withdrawal {
+  id: string;
+  user_id: string;
+  amount: number;
+  status: string;
+  bank_name: string;
+  account_number: string;
+  account_holder: string;
+  note: string;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // WebSocket messages
 export interface WSMessage {
   type: string;

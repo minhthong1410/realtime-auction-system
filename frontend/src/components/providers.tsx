@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useAuthStore } from "@/stores/auth-store";
 import { Toaster } from "@/components/ui/sonner";
+import { I18nProvider } from "@/i18n";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const { fetchProfile } = useAuthStore();
@@ -17,9 +18,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <>
+    <I18nProvider>
       {children}
       <Toaster />
-    </>
+    </I18nProvider>
   );
 }
