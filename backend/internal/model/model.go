@@ -85,7 +85,7 @@ type TotpConfirmResponse struct {
 
 type VerifyOtpRequest struct {
 	TempToken string `json:"temp_token" binding:"required"`
-	Code      string `json:"code" binding:"required,len=6|len=8"`
+	Code      string `json:"code" binding:"required,len=6"`
 }
 
 type TotpSetupRequest struct {

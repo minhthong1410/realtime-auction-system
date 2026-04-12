@@ -136,7 +136,7 @@
     "savedCodes": "I've saved my codes",
     "verifyTitle": "Two-Factor Verification",
     "verifyDescription": "Enter the code from your authenticator app",
-    "codeOrBackup": "6-digit code or backup code",
+    "codeOrBackup": "Enter authenticator code or backup code",
     "verifyFailed": "Verification failed",
     "setupFailed": "Setup failed"
   },

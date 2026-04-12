@@ -136,7 +136,7 @@
     "savedCodes": "Tôi đã lưu mã",
     "verifyTitle": "Xác Thực Hai Yếu Tố",
     "verifyDescription": "Nhập mã từ ứng dụng xác thực",
-    "codeOrBackup": "Mã 6 chữ số hoặc mã dự phòng",
+    "codeOrBackup": "Nhập mã xác thực hoặc mã dự phòng",
     "verifyFailed": "Xác thực thất bại",
     "setupFailed": "Thiết lập thất bại"
   },

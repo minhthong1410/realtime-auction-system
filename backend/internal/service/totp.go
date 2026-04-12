@@ -31,8 +31,8 @@ const (
 	tempTokenExpiry        = 15 * time.Minute
 	otpMaxAttempts         = 5
 	otpAttemptsTTL         = 15 * time.Minute
-	backupCodeCount        = 10
-	backupCodeLength       = 8
+	backupCodeCount  = 10
+	backupCodeLength = 6
 )
 
 type TempTokenClaims struct {
@@ -323,7 +323,7 @@ func (s *TOTPService) IsTOTPEnabled(ctx context.Context, userID string) (bool, e
 }
 
 func generateRandomCode(length int) string {
-	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	const charset = "0123456789"
 	b := make([]byte, length)
 	rand.Read(b)
 	for i := range b {
