@@ -25,6 +25,7 @@ type Auction struct {
 	SellerName    string        `json:"seller_name,omitempty"`
 	Title         string        `json:"title"`
 	Description   string        `json:"description"`
+	Images        []string      `json:"images"`
 	ImageURL      string        `json:"image_url"`
 	StartingPrice int64         `json:"starting_price"`
 	CurrentPrice  int64         `json:"current_price"`
@@ -148,9 +149,17 @@ type RefreshRequest struct {
 type CreateAuctionRequest struct {
 	Title         string    `json:"title" binding:"required,max=255"`
 	Description   string    `json:"description"`
+	Images        []string  `json:"images"`
 	ImageURL      string    `json:"image_url"`
 	StartingPrice int64     `json:"starting_price" binding:"required,gt=0"`
 	EndTime       time.Time `json:"end_time" binding:"required"`
+}
+
+type UpdateAuctionRequest struct {
+	Title       string    `json:"title" binding:"required,max=255"`
+	Description string    `json:"description"`
+	Images      []string  `json:"images" binding:"max=5"`
+	EndTime     time.Time `json:"end_time" binding:"required"`
 }
 
 type PlaceBidRequest struct {

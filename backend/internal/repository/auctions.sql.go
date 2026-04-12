@@ -8,6 +8,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"time"
 )
 
@@ -32,19 +33,19 @@ func (q *Queries) CountActiveAuctions(ctx context.Context) (int64, error) {
 }
 
 const createAuction = `-- name: CreateAuction :exec
-INSERT INTO auctions (id, seller_id, title, description, image_url, starting_price, current_price, status, start_time, end_time)
+INSERT INTO auctions (id, seller_id, title, description, images, starting_price, current_price, status, start_time, end_time)
 VALUES (?, ?, ?, ?, ?, ?, ?, 1, NOW(), ?)
 `
 
 type CreateAuctionParams struct {
-	ID            []byte         `json:"id"`
-	SellerID      []byte         `json:"seller_id"`
-	Title         string         `json:"title"`
-	Description   sql.NullString `json:"description"`
-	ImageUrl      sql.NullString `json:"image_url"`
-	StartingPrice int64          `json:"starting_price"`
-	CurrentPrice  int64          `json:"current_price"`
-	EndTime       time.Time      `json:"end_time"`
+	ID            []byte          `json:"id"`
+	SellerID      []byte          `json:"seller_id"`
+	Title         string          `json:"title"`
+	Description   sql.NullString  `json:"description"`
+	Images        json.RawMessage `json:"images"`
+	StartingPrice int64           `json:"starting_price"`
+	CurrentPrice  int64           `json:"current_price"`
+	EndTime       time.Time       `json:"end_time"`
 }
 
 func (q *Queries) CreateAuction(ctx context.Context, arg CreateAuctionParams) error {
@@ -53,7 +54,7 @@ func (q *Queries) CreateAuction(ctx context.Context, arg CreateAuctionParams) er
 		arg.SellerID,
 		arg.Title,
 		arg.Description,
-		arg.ImageUrl,
+		arg.Images,
 		arg.StartingPrice,
 		arg.CurrentPrice,
 		arg.EndTime,
@@ -61,9 +62,20 @@ func (q *Queries) CreateAuction(ctx context.Context, arg CreateAuctionParams) er
 	return err
 }
 
+const getAuctionBidCount = `-- name: GetAuctionBidCount :one
+SELECT COUNT(*) FROM bids WHERE auction_id = ?
+`
+
+func (q *Queries) GetAuctionBidCount(ctx context.Context, auctionID []byte) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getAuctionBidCount, auctionID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getAuctionByID = `-- name: GetAuctionByID :one
 SELECT a.id, a.seller_id, u.username as seller_name,
-       a.title, a.description, a.image_url,
+       a.title, a.description, a.images,
        a.starting_price, a.current_price, a.winner_id,
        COALESCE(w.username, '') as winner_name,
        a.status, a.start_time, a.end_time, a.created_at,
@@ -75,21 +87,21 @@ WHERE a.id = ?
 `
 
 type GetAuctionByIDRow struct {
-	ID            []byte         `json:"id"`
-	SellerID      []byte         `json:"seller_id"`
-	SellerName    string         `json:"seller_name"`
-	Title         string         `json:"title"`
-	Description   sql.NullString `json:"description"`
-	ImageUrl      sql.NullString `json:"image_url"`
-	StartingPrice int64          `json:"starting_price"`
-	CurrentPrice  int64          `json:"current_price"`
-	WinnerID      sql.NullString `json:"winner_id"`
-	WinnerName    string         `json:"winner_name"`
-	Status        int16          `json:"status"`
-	StartTime     time.Time      `json:"start_time"`
-	EndTime       time.Time      `json:"end_time"`
-	CreatedAt     time.Time      `json:"created_at"`
-	BidCount      int64          `json:"bid_count"`
+	ID            []byte          `json:"id"`
+	SellerID      []byte          `json:"seller_id"`
+	SellerName    string          `json:"seller_name"`
+	Title         string          `json:"title"`
+	Description   sql.NullString  `json:"description"`
+	Images        json.RawMessage `json:"images"`
+	StartingPrice int64           `json:"starting_price"`
+	CurrentPrice  int64           `json:"current_price"`
+	WinnerID      sql.NullString  `json:"winner_id"`
+	WinnerName    string          `json:"winner_name"`
+	Status        int16           `json:"status"`
+	StartTime     time.Time       `json:"start_time"`
+	EndTime       time.Time       `json:"end_time"`
+	CreatedAt     time.Time       `json:"created_at"`
+	BidCount      int64           `json:"bid_count"`
 }
 
 func (q *Queries) GetAuctionByID(ctx context.Context, id []byte) (GetAuctionByIDRow, error) {
@@ -101,7 +113,7 @@ func (q *Queries) GetAuctionByID(ctx context.Context, id []byte) (GetAuctionByID
 		&i.SellerName,
 		&i.Title,
 		&i.Description,
-		&i.ImageUrl,
+		&i.Images,
 		&i.StartingPrice,
 		&i.CurrentPrice,
 		&i.WinnerID,
@@ -112,6 +124,22 @@ func (q *Queries) GetAuctionByID(ctx context.Context, id []byte) (GetAuctionByID
 		&i.CreatedAt,
 		&i.BidCount,
 	)
+	return i, err
+}
+
+const getAuctionOwner = `-- name: GetAuctionOwner :one
+SELECT seller_id, status FROM auctions WHERE id = ?
+`
+
+type GetAuctionOwnerRow struct {
+	SellerID []byte `json:"seller_id"`
+	Status   int16  `json:"status"`
+}
+
+func (q *Queries) GetAuctionOwner(ctx context.Context, id []byte) (GetAuctionOwnerRow, error) {
+	row := q.db.QueryRowContext(ctx, getAuctionOwner, id)
+	var i GetAuctionOwnerRow
+	err := row.Scan(&i.SellerID, &i.Status)
 	return i, err
 }
 
@@ -160,7 +188,7 @@ func (q *Queries) GetExpiredActiveAuctions(ctx context.Context) ([]GetExpiredAct
 
 const listActiveAuctions = `-- name: ListActiveAuctions :many
 SELECT a.id, a.seller_id, u.username as seller_name,
-       a.title, a.description, a.image_url,
+       a.title, a.description, a.images,
        a.starting_price, a.current_price, a.winner_id,
        a.status, a.start_time, a.end_time, a.created_at,
        (SELECT COUNT(*) FROM bids WHERE auction_id = a.id) as bid_count
@@ -177,20 +205,20 @@ type ListActiveAuctionsParams struct {
 }
 
 type ListActiveAuctionsRow struct {
-	ID            []byte         `json:"id"`
-	SellerID      []byte         `json:"seller_id"`
-	SellerName    string         `json:"seller_name"`
-	Title         string         `json:"title"`
-	Description   sql.NullString `json:"description"`
-	ImageUrl      sql.NullString `json:"image_url"`
-	StartingPrice int64          `json:"starting_price"`
-	CurrentPrice  int64          `json:"current_price"`
-	WinnerID      sql.NullString `json:"winner_id"`
-	Status        int16          `json:"status"`
-	StartTime     time.Time      `json:"start_time"`
-	EndTime       time.Time      `json:"end_time"`
-	CreatedAt     time.Time      `json:"created_at"`
-	BidCount      int64          `json:"bid_count"`
+	ID            []byte          `json:"id"`
+	SellerID      []byte          `json:"seller_id"`
+	SellerName    string          `json:"seller_name"`
+	Title         string          `json:"title"`
+	Description   sql.NullString  `json:"description"`
+	Images        json.RawMessage `json:"images"`
+	StartingPrice int64           `json:"starting_price"`
+	CurrentPrice  int64           `json:"current_price"`
+	WinnerID      sql.NullString  `json:"winner_id"`
+	Status        int16           `json:"status"`
+	StartTime     time.Time       `json:"start_time"`
+	EndTime       time.Time       `json:"end_time"`
+	CreatedAt     time.Time       `json:"created_at"`
+	BidCount      int64           `json:"bid_count"`
 }
 
 func (q *Queries) ListActiveAuctions(ctx context.Context, arg ListActiveAuctionsParams) ([]ListActiveAuctionsRow, error) {
@@ -208,7 +236,7 @@ func (q *Queries) ListActiveAuctions(ctx context.Context, arg ListActiveAuctions
 			&i.SellerName,
 			&i.Title,
 			&i.Description,
-			&i.ImageUrl,
+			&i.Images,
 			&i.StartingPrice,
 			&i.CurrentPrice,
 			&i.WinnerID,
@@ -233,7 +261,7 @@ func (q *Queries) ListActiveAuctions(ctx context.Context, arg ListActiveAuctions
 
 const listAuctionsByUser = `-- name: ListAuctionsByUser :many
 SELECT a.id, a.seller_id, u.username as seller_name,
-       a.title, a.description, a.image_url,
+       a.title, a.description, a.images,
        a.starting_price, a.current_price, a.winner_id,
        a.status, a.start_time, a.end_time, a.created_at,
        (SELECT COUNT(*) FROM bids WHERE auction_id = a.id) as bid_count
@@ -251,20 +279,20 @@ type ListAuctionsByUserParams struct {
 }
 
 type ListAuctionsByUserRow struct {
-	ID            []byte         `json:"id"`
-	SellerID      []byte         `json:"seller_id"`
-	SellerName    string         `json:"seller_name"`
-	Title         string         `json:"title"`
-	Description   sql.NullString `json:"description"`
-	ImageUrl      sql.NullString `json:"image_url"`
-	StartingPrice int64          `json:"starting_price"`
-	CurrentPrice  int64          `json:"current_price"`
-	WinnerID      sql.NullString `json:"winner_id"`
-	Status        int16          `json:"status"`
-	StartTime     time.Time      `json:"start_time"`
-	EndTime       time.Time      `json:"end_time"`
-	CreatedAt     time.Time      `json:"created_at"`
-	BidCount      int64          `json:"bid_count"`
+	ID            []byte          `json:"id"`
+	SellerID      []byte          `json:"seller_id"`
+	SellerName    string          `json:"seller_name"`
+	Title         string          `json:"title"`
+	Description   sql.NullString  `json:"description"`
+	Images        json.RawMessage `json:"images"`
+	StartingPrice int64           `json:"starting_price"`
+	CurrentPrice  int64           `json:"current_price"`
+	WinnerID      sql.NullString  `json:"winner_id"`
+	Status        int16           `json:"status"`
+	StartTime     time.Time       `json:"start_time"`
+	EndTime       time.Time       `json:"end_time"`
+	CreatedAt     time.Time       `json:"created_at"`
+	BidCount      int64           `json:"bid_count"`
 }
 
 func (q *Queries) ListAuctionsByUser(ctx context.Context, arg ListAuctionsByUserParams) ([]ListAuctionsByUserRow, error) {
@@ -282,7 +310,7 @@ func (q *Queries) ListAuctionsByUser(ctx context.Context, arg ListAuctionsByUser
 			&i.SellerName,
 			&i.Title,
 			&i.Description,
-			&i.ImageUrl,
+			&i.Images,
 			&i.StartingPrice,
 			&i.CurrentPrice,
 			&i.WinnerID,
@@ -333,6 +361,31 @@ func (q *Queries) LockAuctionForBid(ctx context.Context, id []byte) (LockAuction
 		&i.EndTime,
 	)
 	return i, err
+}
+
+const updateAuction = `-- name: UpdateAuction :exec
+UPDATE auctions
+SET title = ?, description = ?, images = ?, end_time = ?
+WHERE id = ?
+`
+
+type UpdateAuctionParams struct {
+	Title       string          `json:"title"`
+	Description sql.NullString  `json:"description"`
+	Images      json.RawMessage `json:"images"`
+	EndTime     time.Time       `json:"end_time"`
+	ID          []byte          `json:"id"`
+}
+
+func (q *Queries) UpdateAuction(ctx context.Context, arg UpdateAuctionParams) error {
+	_, err := q.db.ExecContext(ctx, updateAuction,
+		arg.Title,
+		arg.Description,
+		arg.Images,
+		arg.EndTime,
+		arg.ID,
+	)
+	return err
 }
 
 const updateAuctionBid = `-- name: UpdateAuctionBid :exec

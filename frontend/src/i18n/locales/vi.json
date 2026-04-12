@@ -5,6 +5,7 @@
     "submit": "Gửi",
     "cancel": "Hủy",
     "save": "Lưu",
+    "edit": "Sửa",
     "delete": "Xóa",
     "confirm": "Xác nhận",
     "back": "Quay lại",
@@ -89,7 +90,16 @@
     "imageUploaded": "Tải ảnh thành công",
     "imageFailed": "Tải ảnh thất bại",
     "created": "Tạo đấu giá thành công!",
-    "createFailed": "Tạo đấu giá thất bại"
+    "createFailed": "Tạo đấu giá thất bại",
+    "editTitle": "Chỉnh Sửa Đấu Giá",
+    "editSubtitle": "Cập nhật thông tin đấu giá",
+    "images": "Hình ảnh",
+    "addImage": "Thêm ảnh",
+    "maxImages": "Tối đa {max} ảnh",
+    "updated": "Cập nhật thành công!",
+    "updateFailed": "Cập nhật thất bại",
+    "saveChanges": "Lưu Thay Đổi",
+    "notOwner": "Bạn không phải chủ đấu giá này"
   },
   "wallet": {
     "balance": "Số Dư",

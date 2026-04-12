@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
+import { useAuthStore } from "@/stores/auth-store";
 import { useTranslation } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,17 +17,49 @@ import type { ApiResponse, Auction } from "@/lib/types";
 
 const MAX_IMAGES = 5;
 
-export default function CreateAuctionPage() {
+export default function EditAuctionPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const router = useRouter();
+  const { user } = useAuthStore();
   const { t } = useTranslation();
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [startingPrice, setStartingPrice] = useState("");
-  const [endTime, setEndTime] = useState("");
   const [images, setImages] = useState<string[]>([]);
+  const [endTime, setEndTime] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
+
+  useEffect(() => {
+    api.get<ApiResponse<Auction>>(`/api/auctions/${id}`)
+      .then(({ data }) => {
+        const a = data.data;
+        if (a.seller_id !== user?.id) {
+          toast.error(t("auction.notOwner"));
+          router.push("/");
+          return;
+        }
+        if (a.status !== 1) {
+          toast.error(t("auction.ended"));
+          router.push(`/auctions/${id}`);
+          return;
+        }
+        setTitle(a.title);
+        setDescription(a.description || "");
+        setImages(a.images || (a.image_url ? [a.image_url] : []));
+        // Format end_time for datetime-local input
+        const d = new Date(a.end_time);
+        const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        setEndTime(local);
+      })
+      .catch(() => {
+        toast.error(t("auction.notFound"));
+        router.push("/");
+      })
+      .finally(() => setLoading(false));
+  }, [id, user?.id, router, t]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -83,28 +116,45 @@ export default function CreateAuctionPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setSaving(true);
     try {
-      const { data } = await api.post<ApiResponse<Auction>>("/api/auctions", {
-        title, description, images,
-        starting_price: Math.round(parseFloat(startingPrice) * 100),
+      await api.put<ApiResponse<Auction>>(`/api/auctions/${id}`, {
+        title,
+        description,
+        images,
         end_time: new Date(endTime).toISOString(),
       });
-      toast.success(t("auction.created"));
-      router.push(`/auctions/${data.data.id}`);
+      toast.success(t("auction.updated"));
+      router.push(`/auctions/${id}`);
     } catch (err) {
-      toast.error(getErrorMessage(err, t("auction.createFailed")));
-    } finally { setLoading(false); }
+      toast.error(getErrorMessage(err, t("auction.updateFailed")));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const minEndTime = new Date(Date.now() + 2 * 60 * 1000).toISOString().slice(0, 16);
+
+  if (loading) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <Card>
+          <CardContent className="pt-6 space-y-4">
+            <div className="h-8 bg-muted animate-pulse rounded w-1/2" />
+            <div className="h-32 bg-muted animate-pulse rounded" />
+            <div className="h-10 bg-muted animate-pulse rounded" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto">
       <Card>
         <CardHeader>
-          <CardTitle>{t("auction.createTitle")}</CardTitle>
-          <CardDescription>{t("auction.createSubtitle")}</CardDescription>
+          <CardTitle>{t("auction.editTitle")}</CardTitle>
+          <CardDescription>{t("auction.editSubtitle")}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -161,19 +211,19 @@ export default function CreateAuctionPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="price">{t("auction.startingPriceLabel")}</Label>
-                <Input id="price" type="number" step="0.01" min="0.01" value={startingPrice} onChange={(e) => setStartingPrice(e.target.value)} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="endTime">{t("auction.endTime")}</Label>
-                <Input id="endTime" type="datetime-local" min={minEndTime} value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="endTime">{t("auction.endTime")}</Label>
+              <Input id="endTime" type="datetime-local" min={minEndTime} value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
             </div>
-            <Button type="submit" className="w-full" disabled={loading || uploading}>
-              {loading ? t("common.processing") : t("auction.createTitle")}
-            </Button>
+
+            <div className="flex gap-3">
+              <Button type="button" variant="outline" className="flex-1" onClick={() => router.back()}>
+                {t("common.cancel")}
+              </Button>
+              <Button type="submit" className="flex-1" disabled={saving || uploading}>
+                {saving ? t("common.processing") : t("auction.saveChanges")}
+              </Button>
+            </div>
           </form>
         </CardContent>
       </Card>

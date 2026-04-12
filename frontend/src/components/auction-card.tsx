@@ -20,9 +20,9 @@ export function AuctionCard({ auction }: { auction: Auction }) {
       <div className="rounded-xl border border-border/50 overflow-hidden bg-card hover:shadow-lg hover:shadow-primary/[0.04] hover:border-border transition-all duration-300">
         {/* Image */}
         <div className="aspect-[4/3] bg-muted relative overflow-hidden">
-          {auction.image_url ? (
+          {(auction.images?.[0] || auction.image_url) ? (
             <Image
-              src={auction.image_url}
+              src={auction.images?.[0] || auction.image_url}
               alt={auction.title}
               width={600}
               height={450}

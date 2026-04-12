@@ -5,6 +5,7 @@
     "submit": "Submit",
     "cancel": "Cancel",
     "save": "Save",
+    "edit": "Edit",
     "delete": "Delete",
     "confirm": "Confirm",
     "back": "Back",
@@ -89,7 +90,16 @@
     "imageUploaded": "Image uploaded",
     "imageFailed": "Failed to upload image",
     "created": "Auction created!",
-    "createFailed": "Failed to create auction"
+    "createFailed": "Failed to create auction",
+    "editTitle": "Edit Auction",
+    "editSubtitle": "Update your auction details",
+    "images": "Images",
+    "addImage": "Add image",
+    "maxImages": "Maximum {max} images allowed",
+    "updated": "Auction updated!",
+    "updateFailed": "Failed to update auction",
+    "saveChanges": "Save Changes",
+    "notOwner": "You don't own this auction"
   },
   "wallet": {
     "balance": "Balance",

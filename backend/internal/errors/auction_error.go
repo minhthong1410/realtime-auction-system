@@ -12,4 +12,6 @@ var (
 	ErrorBidTooLow        = CustomError{Err: errors.New("auction.bid_too_low"), StatusCode: http.StatusBadRequest}
 	ErrorSelfBid          = CustomError{Err: errors.New("auction.self_bid"), StatusCode: http.StatusBadRequest}
 	ErrorInsufficientFunds = CustomError{Err: errors.New("auction.insufficient_funds"), StatusCode: http.StatusBadRequest}
+	ErrorNotAuctionOwner   = CustomError{Err: errors.New("auction.not_owner"), StatusCode: http.StatusForbidden}
+	ErrorAuctionHasBids    = CustomError{Err: errors.New("auction.has_bids"), StatusCode: http.StatusBadRequest}
 )

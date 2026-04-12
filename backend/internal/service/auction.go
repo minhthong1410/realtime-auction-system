@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	stderrors "errors"
 	"time"
 
@@ -34,6 +35,17 @@ func (s *AuctionService) Create(ctx context.Context, userID string, req model.Cr
 		return nil, appErr.ErrorInvalidEndTime
 	}
 
+	// Backward compat: if image_url is set but images is empty, use image_url
+	images := req.Images
+	if len(images) == 0 && req.ImageURL != "" {
+		images = []string{req.ImageURL}
+	}
+	if len(images) > 5 {
+		return nil, appErr.ErrorInvalidParams
+	}
+
+	imagesJSON, _ := json.Marshal(images)
+
 	userIDBytes, _ := util.UUIDFromString(userID)
 	auctionID := util.NewUUID()
 
@@ -42,7 +54,7 @@ func (s *AuctionService) Create(ctx context.Context, userID string, req model.Cr
 		SellerID:      userIDBytes,
 		Title:         req.Title,
 		Description:   sql.NullString{String: req.Description, Valid: req.Description != ""},
-		ImageUrl:      sql.NullString{String: req.ImageURL, Valid: req.ImageURL != ""},
+		Images:        imagesJSON,
 		StartingPrice: req.StartingPrice,
 		CurrentPrice:  req.StartingPrice,
 		EndTime:       req.EndTime,
@@ -55,6 +67,53 @@ func (s *AuctionService) Create(ctx context.Context, userID string, req model.Cr
 	s.cache.DelPattern(ctx, "cache:auctions:*")
 
 	return s.GetByID(ctx, util.UUIDToString(auctionID))
+}
+
+func (s *AuctionService) Update(ctx context.Context, auctionID, userID string, req model.UpdateAuctionRequest) (*model.Auction, error) {
+	idBytes, err := util.UUIDFromString(auctionID)
+	if err != nil {
+		return nil, appErr.ErrorAuctionNotFound
+	}
+
+	// Check ownership and status
+	owner, err := s.queries.GetAuctionOwner(ctx, idBytes)
+	if err != nil {
+		if stderrors.Is(err, sql.ErrNoRows) {
+			return nil, appErr.ErrorAuctionNotFound
+		}
+		return nil, appErr.ErrorDatabase
+	}
+
+	userIDBytes, _ := util.UUIDFromString(userID)
+	if string(owner.SellerID) != string(userIDBytes) {
+		return nil, appErr.ErrorNotAuctionOwner
+	}
+	if owner.Status != int16(model.AuctionStatusActive) {
+		return nil, appErr.ErrorAuctionEnded
+	}
+
+	if req.EndTime.Before(time.Now().Add(time.Minute)) {
+		return nil, appErr.ErrorInvalidEndTime
+	}
+	if len(req.Images) > 5 {
+		return nil, appErr.ErrorInvalidParams
+	}
+
+	imagesJSON, _ := json.Marshal(req.Images)
+
+	err = s.queries.UpdateAuction(ctx, repository.UpdateAuctionParams{
+		Title:       req.Title,
+		Description: sql.NullString{String: req.Description, Valid: req.Description != ""},
+		Images:      imagesJSON,
+		EndTime:     req.EndTime,
+		ID:          idBytes,
+	})
+	if err != nil {
+		return nil, appErr.ErrorDatabase
+	}
+
+	s.InvalidateAuction(ctx, auctionID)
+	return s.GetByID(ctx, auctionID)
 }
 
 func (s *AuctionService) GetByID(ctx context.Context, id string) (*model.Auction, error) {
@@ -114,13 +173,15 @@ func (s *AuctionService) ListActive(ctx context.Context, limit, offset int32) ([
 
 	auctions := make([]model.Auction, len(rows))
 	for i, row := range rows {
+		images := parseImages(row.Images)
 		auctions[i] = model.Auction{
 			ID:            util.UUIDToString(row.ID),
 			SellerID:      util.UUIDToString(row.SellerID),
 			SellerName:    row.SellerName,
 			Title:         row.Title,
 			Description:   row.Description.String,
-			ImageURL:      row.ImageUrl.String,
+			Images:        images,
+			ImageURL:      firstImage(images),
 			StartingPrice: row.StartingPrice,
 			CurrentPrice:  row.CurrentPrice,
 			WinnerID:      nullBytesToStringPtr(row.WinnerID),
@@ -149,13 +210,15 @@ func (s *AuctionService) ListByUser(ctx context.Context, userID string, limit, o
 
 	auctions := make([]model.Auction, len(rows))
 	for i, row := range rows {
+		images := parseImages(row.Images)
 		auctions[i] = model.Auction{
 			ID:            util.UUIDToString(row.ID),
 			SellerID:      util.UUIDToString(row.SellerID),
 			SellerName:    row.SellerName,
 			Title:         row.Title,
 			Description:   row.Description.String,
-			ImageURL:      row.ImageUrl.String,
+			Images:        images,
+			ImageURL:      firstImage(images),
 			StartingPrice: row.StartingPrice,
 			CurrentPrice:  row.CurrentPrice,
 			WinnerID:      nullBytesToStringPtr(row.WinnerID),
@@ -203,13 +266,15 @@ func (s *AuctionService) InvalidateAuction(ctx context.Context, auctionID string
 }
 
 func mapAuctionDetailRow(row repository.GetAuctionByIDRow) *model.Auction {
+	images := parseImages(row.Images)
 	return &model.Auction{
 		ID:            util.UUIDToString(row.ID),
 		SellerID:      util.UUIDToString(row.SellerID),
 		SellerName:    row.SellerName,
 		Title:         row.Title,
 		Description:   row.Description.String,
-		ImageURL:      row.ImageUrl.String,
+		Images:        images,
+		ImageURL:      firstImage(images),
 		StartingPrice: row.StartingPrice,
 		CurrentPrice:  row.CurrentPrice,
 		WinnerID:      nullBytesToStringPtr(row.WinnerID),
@@ -220,6 +285,24 @@ func mapAuctionDetailRow(row repository.GetAuctionByIDRow) *model.Auction {
 		CreatedAt:     row.CreatedAt,
 		BidCount:      int(row.BidCount),
 	}
+}
+
+func parseImages(raw json.RawMessage) []string {
+	if len(raw) == 0 {
+		return []string{}
+	}
+	var images []string
+	if err := json.Unmarshal(raw, &images); err != nil {
+		return []string{}
+	}
+	return images
+}
+
+func firstImage(images []string) string {
+	if len(images) > 0 {
+		return images[0]
+	}
+	return ""
 }
 
 func nullBytesToStringPtr(n sql.NullString) *string {

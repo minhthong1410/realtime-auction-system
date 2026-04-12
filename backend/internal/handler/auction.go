@@ -45,6 +45,7 @@ func NewAuctionHandler(ctx *app.Context) *AuctionHandler {
 	protected.Use(ctx.Auth)
 	{
 		protected.POST("", w(h.Create))
+		protected.PUT("/:id", w(h.Update))
 		protected.POST("/:id/bid", w(h.PlaceBid))
 	}
 
@@ -70,6 +71,26 @@ func (h *AuctionHandler) Create(c *gin.Context) error {
 	}
 
 	return httputil.RenderGinJSON(http.StatusCreated, c, httputil.NewCreatedResponse(c, auction))
+}
+
+func (h *AuctionHandler) Update(c *gin.Context) error {
+	id := c.Param("id")
+	if !util.IsValidUUID(id) {
+		return httputil.RenderError(c, appErr.ErrorInvalidParams)
+	}
+
+	var req model.UpdateAuctionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		return httputil.RenderError(c, appErr.ErrorInvalidParams)
+	}
+
+	userID := httputil.GetUserIDFromContext(c)
+	auction, err := h.auctionService.Update(c.Request.Context(), id, userID, req)
+	if err != nil {
+		return renderServiceError(c, err)
+	}
+
+	return httputil.RenderGinJSON(http.StatusOK, c, httputil.NewSuccessResponse(c, auction))
 }
 
 func (h *AuctionHandler) GetByID(c *gin.Context) error {

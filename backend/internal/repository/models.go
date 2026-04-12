@@ -11,18 +11,18 @@ import (
 )
 
 type Auction struct {
-	ID            []byte         `json:"id"`
-	SellerID      []byte         `json:"seller_id"`
-	Title         string         `json:"title"`
-	Description   sql.NullString `json:"description"`
-	ImageUrl      sql.NullString `json:"image_url"`
-	StartingPrice int64          `json:"starting_price"`
-	CurrentPrice  int64          `json:"current_price"`
-	WinnerID      sql.NullString `json:"winner_id"`
-	Status        int16          `json:"status"`
-	StartTime     time.Time      `json:"start_time"`
-	EndTime       time.Time      `json:"end_time"`
-	CreatedAt     time.Time      `json:"created_at"`
+	ID            []byte          `json:"id"`
+	SellerID      []byte          `json:"seller_id"`
+	Title         string          `json:"title"`
+	Description   sql.NullString  `json:"description"`
+	StartingPrice int64           `json:"starting_price"`
+	CurrentPrice  int64           `json:"current_price"`
+	WinnerID      sql.NullString  `json:"winner_id"`
+	Status        int16           `json:"status"`
+	StartTime     time.Time       `json:"start_time"`
+	EndTime       time.Time       `json:"end_time"`
+	CreatedAt     time.Time       `json:"created_at"`
+	Images        json.RawMessage `json:"images"`
 }
 
 type Bid struct {

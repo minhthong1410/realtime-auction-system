@@ -1,10 +1,10 @@
 -- name: CreateAuction :exec
-INSERT INTO auctions (id, seller_id, title, description, image_url, starting_price, current_price, status, start_time, end_time)
+INSERT INTO auctions (id, seller_id, title, description, images, starting_price, current_price, status, start_time, end_time)
 VALUES (?, ?, ?, ?, ?, ?, ?, 1, NOW(), ?);
 
 -- name: GetAuctionByID :one
 SELECT a.id, a.seller_id, u.username as seller_name,
-       a.title, a.description, a.image_url,
+       a.title, a.description, a.images,
        a.starting_price, a.current_price, a.winner_id,
        COALESCE(w.username, '') as winner_name,
        a.status, a.start_time, a.end_time, a.created_at,
@@ -16,7 +16,7 @@ WHERE a.id = ?;
 
 -- name: ListActiveAuctions :many
 SELECT a.id, a.seller_id, u.username as seller_name,
-       a.title, a.description, a.image_url,
+       a.title, a.description, a.images,
        a.starting_price, a.current_price, a.winner_id,
        a.status, a.start_time, a.end_time, a.created_at,
        (SELECT COUNT(*) FROM bids WHERE auction_id = a.id) as bid_count
@@ -47,7 +47,7 @@ UPDATE auctions SET status = 2 WHERE id = ?;
 
 -- name: ListAuctionsByUser :many
 SELECT a.id, a.seller_id, u.username as seller_name,
-       a.title, a.description, a.image_url,
+       a.title, a.description, a.images,
        a.starting_price, a.current_price, a.winner_id,
        a.status, a.start_time, a.end_time, a.created_at,
        (SELECT COUNT(*) FROM bids WHERE auction_id = a.id) as bid_count
@@ -56,6 +56,17 @@ JOIN users u ON u.id = a.seller_id
 WHERE a.seller_id = ?
 ORDER BY a.created_at DESC
 LIMIT ? OFFSET ?;
+
+-- name: UpdateAuction :exec
+UPDATE auctions
+SET title = ?, description = ?, images = ?, end_time = ?
+WHERE id = ?;
+
+-- name: GetAuctionBidCount :one
+SELECT COUNT(*) FROM bids WHERE auction_id = ?;
+
+-- name: GetAuctionOwner :one
+SELECT seller_id, status FROM auctions WHERE id = ?;
 
 -- name: CountActiveAuctions :one
 SELECT COUNT(*) FROM auctions WHERE status = 1;

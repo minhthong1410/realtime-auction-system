@@ -12,6 +12,7 @@ export interface Auction {
   seller_name: string;
   title: string;
   description: string;
+  images: string[];
   image_url: string;
   starting_price: number;
   current_price: number;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, use } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
@@ -15,7 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import Image from "next/image";
 import { getErrorMessage } from "@/lib/error";
-import { Clock, Trophy, TrendingUp, User } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, Pencil, Trophy, TrendingUp, User } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import type { Auction, Bid, ApiResponse, WSMessage, WSNewBid, WSAuctionEnded } from "@/lib/types";
 
@@ -30,6 +31,7 @@ export default function AuctionDetailPage({ params }: { params: Promise<{ id: st
   const [bidAmount, setBidAmount] = useState("");
   const [loading, setLoading] = useState(true);
   const [bidding, setBidding] = useState(false);
+  const [currentImage, setCurrentImage] = useState(0);
 
   const timeLeft = useCountdown(auction?.end_time || "");
   const isEnded = (timeLeft.total <= 0 && auction !== null) || auction?.status !== 1;
@@ -111,9 +113,38 @@ export default function AuctionDetailPage({ params }: { params: Promise<{ id: st
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
       {/* Left */}
       <div className="lg:col-span-3 space-y-5">
-        <div className="aspect-[4/3] bg-muted rounded-xl overflow-hidden">
-          {auction.image_url ? (
-            <Image src={auction.image_url} alt={auction.title} width={800} height={600} unoptimized className="w-full h-full object-cover" />
+        <div className="aspect-[4/3] bg-muted rounded-xl overflow-hidden relative">
+          {(auction.images?.length > 0 || auction.image_url) ? (
+            <>
+              <Image
+                src={auction.images?.[currentImage] || auction.image_url}
+                alt={auction.title}
+                width={800} height={600} unoptimized
+                className="w-full h-full object-cover"
+              />
+              {auction.images?.length > 1 && (
+                <>
+                  <button
+                    onClick={() => setCurrentImage((p) => (p - 1 + auction.images.length) % auction.images.length)}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setCurrentImage((p) => (p + 1) % auction.images.length)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                    {auction.images.map((_, i) => (
+                      <button key={i} onClick={() => setCurrentImage(i)}
+                        className={`h-2 w-2 rounded-full transition ${i === currentImage ? "bg-white" : "bg-white/40"}`} />
+                    ))}
+                  </div>
+                </>
+              )}
+            </>
           ) : (
             <div className="w-full h-full flex items-center justify-center text-muted-foreground/30">
               <span className="text-5xl">🖼</span>
@@ -121,12 +152,33 @@ export default function AuctionDetailPage({ params }: { params: Promise<{ id: st
           )}
         </div>
 
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{auction.title}</h1>
-          <div className="flex items-center gap-1.5 mt-1.5 text-sm text-muted-foreground">
-            <User className="h-3.5 w-3.5" />
-            {auction.seller_name}
+        {auction.images?.length > 1 && (
+          <div className="flex gap-2 overflow-x-auto">
+            {auction.images.map((img, i) => (
+              <button key={i} onClick={() => setCurrentImage(i)}
+                className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition ${i === currentImage ? "border-primary" : "border-transparent opacity-60 hover:opacity-100"}`}>
+                <Image src={img} alt={`${auction.title} ${i + 1}`} width={80} height={80} unoptimized className="w-full h-full object-cover" />
+              </button>
+            ))}
           </div>
+        )}
+
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">{auction.title}</h1>
+            <div className="flex items-center gap-1.5 mt-1.5 text-sm text-muted-foreground">
+              <User className="h-3.5 w-3.5" />
+              {auction.seller_name}
+            </div>
+          </div>
+          {isAuthenticated && user?.id === auction.seller_id && auction.status === 1 && (
+            <Link href={`/auctions/${auction.id}/edit`}>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <Pencil className="h-3.5 w-3.5" />
+                {t("common.edit")}
+              </Button>
+            </Link>
+          )}
         </div>
 
         {auction.description && (
