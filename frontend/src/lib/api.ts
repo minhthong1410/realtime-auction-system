@@ -1,4 +1,5 @@
 import axios from "axios";
+import { reconnectWS } from "@/hooks/use-websocket";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -37,6 +38,7 @@ api.interceptors.response.use(
           localStorage.setItem("access_token", tokens.access_token);
           localStorage.setItem("refresh_token", tokens.refresh_token);
           original.headers.Authorization = `Bearer ${tokens.access_token}`;
+          reconnectWS();
           return api(original);
         } catch {
           localStorage.removeItem("access_token");

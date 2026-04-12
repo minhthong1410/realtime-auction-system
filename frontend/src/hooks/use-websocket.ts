@@ -13,6 +13,15 @@ let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 const subscribers = new Map<string, Set<MessageHandler>>();
 const subscribedRooms = new Set<string>();
 
+export function reconnectWS() {
+  if (ws) {
+    ws.onclose = null; // prevent auto-reconnect with old token
+    ws.close();
+    ws = null;
+  }
+  connect();
+}
+
 function connect() {
   if (ws?.readyState === WebSocket.OPEN || ws?.readyState === WebSocket.CONNECTING) return;
 

@@ -113,5 +113,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.setItem("access_token", accessToken);
     localStorage.setItem("refresh_token", refreshToken);
     set({ user, isAuthenticated: true, isLoading: false });
+    // Reconnect WebSocket with new token for private room subscriptions
+    import("@/hooks/use-websocket").then(({ reconnectWS }) => reconnectWS());
   },
 }));
