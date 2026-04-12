@@ -1,0 +1,182 @@
+{
+  "title": "Auction System — Overview",
+  "tags": ["auction", "production"],
+  "timezone": "browser",
+  "refresh": "15s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Request Rate (req/s)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "grafanacloud-prom" },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total[1m])) by (method)",
+          "legendFormat": "{{method}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "custom": { "fillOpacity": 15, "lineWidth": 2 } },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "title": "Response Time p95",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "grafanacloud-prom" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[1m])) by (le, path))",
+          "legendFormat": "{{path}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "fillOpacity": 10, "lineWidth": 2 } },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "title": "HTTP Status Codes",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "grafanacloud-prom" },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total[1m])) by (status)",
+          "legendFormat": "{{status}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "custom": { "fillOpacity": 20, "lineWidth": 2 } },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "title": "Top Endpoints",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "grafanacloud-prom" },
+      "targets": [
+        {
+          "expr": "topk(5, sum(rate(http_requests_total[5m])) by (path))",
+          "legendFormat": "{{path}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "custom": { "fillOpacity": 10, "lineWidth": 2 } },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "title": "Cache Hit Rate",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "grafanacloud-prom" },
+      "targets": [
+        {
+          "expr": "sum(rate(cache_hits_total{result=\"hit\"}[5m])) / sum(rate(cache_hits_total[5m])) * 100",
+          "legendFormat": "Hit Rate",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent", "min": 0, "max": 100,
+          "thresholds": { "steps": [{ "color": "red", "value": null }, { "color": "yellow", "value": 50 }, { "color": "green", "value": 80 }] }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "title": "Total Bids",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "grafanacloud-prom" },
+      "targets": [{ "expr": "auction_bids_total", "legendFormat": "Bids", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": { "thresholds": { "steps": [{ "color": "orange", "value": null }] } },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "title": "Deposits",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "grafanacloud-prom" },
+      "targets": [{ "expr": "wallet_deposits_total{status=\"completed\"}", "legendFormat": "Completed", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": { "thresholds": { "steps": [{ "color": "green", "value": null }] } },
+        "overrides": []
+      }
+    },
+    {
+      "id": 8,
+      "title": "Withdrawals",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "grafanacloud-prom" },
+      "targets": [{ "expr": "wallet_withdrawals_total{status=\"pending\"}", "legendFormat": "Pending", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": { "thresholds": { "steps": [{ "color": "yellow", "value": null }] } },
+        "overrides": []
+      }
+    },
+    {
+      "id": 9,
+      "title": "WebSocket",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "grafanacloud-prom" },
+      "targets": [{ "expr": "websocket_active_connections", "legendFormat": "Active", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": { "thresholds": { "steps": [{ "color": "blue", "value": null }] } },
+        "overrides": []
+      }
+    },
+    {
+      "id": 10,
+      "title": "Bid Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "grafanacloud-prom" },
+      "targets": [{ "expr": "rate(auction_bids_total[1m]) * 60", "legendFormat": "Bids/min", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "fillOpacity": 30, "lineWidth": 2, "drawStyle": "bars" },
+          "color": { "fixedColor": "orange", "mode": "fixed" }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 11,
+      "title": "Go Runtime",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "grafanacloud-prom" },
+      "targets": [
+        { "expr": "go_goroutines", "legendFormat": "Goroutines", "refId": "A" },
+        { "expr": "go_memstats_alloc_bytes / 1024 / 1024", "legendFormat": "Heap (MB)", "refId": "B" }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "fillOpacity": 10, "lineWidth": 2 } },
+        "overrides": []
+      }
+    }
+  ],
+  "schemaVersion": 39
+}
